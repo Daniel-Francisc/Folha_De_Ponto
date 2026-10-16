@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from model.ExcelExtrator import lerExcel
+from model.ExcelExtrator import ExcelExtrator
 
+
+excel_extrator = ExcelExtrator()
 router = APIRouter()
 
 @router.post("/")
@@ -13,7 +15,9 @@ async def post(arquivo: UploadFile = File(...)):
                  status_code=400,
                 detail="Envie um arquivo XLS ou XLSX."
             )
-
+        
+        conteudo = await arquivo.read()
+        await excel_extrator.lerExcel(conteudo)
     except Exception:
         raise HTTPException(
             status_code=400,
