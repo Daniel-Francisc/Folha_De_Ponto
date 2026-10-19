@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
-from model.ExcelExtrator import ExcelExtrator
+from Backend.lib.ExcelExtrator import ExcelExtrator
 
 
 excel_extrator = ExcelExtrator()
