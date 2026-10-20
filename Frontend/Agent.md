@@ -266,6 +266,26 @@ Dividida em **três regiões**.
 - Estado de envio por item (`em andamento` / `sucesso` / `erro`), refletido também na central de notificações.
 - Erros de SMTP devem ser exibidos em linguagem simples, sem detalhe técnico bruto.
 
+**Implementado (UI) — três abas**
+
+- **Enviar**:
+  - e-mail em **⅔** + card “Arquivos não enviados” em **⅓**;
+  - assunto e contexto editáveis; ao **arrastar um arquivo**, o contexto vira **área de recebimento**;
+  - botões no rodapé à direita: **Enviar** (azul escuro) e **Cancelar** (branco com texto azul escuro);
+  - abaixo: **E-mails de rotina** com data/hora editável (`datetime-local` com `min` = agora) e destinatários.
+- **Recebidos**:
+  - visualizador do e-mail (⅔) + **outras notificações** (⅓);
+  - abaixo, **registro completo** com status (Pendente / Concluída / Negada) e ações para concluir ou negar.
+- **Histórico**:
+  - visualizador do e-mail enviado (⅔) + **histórico resumido** (⅓);
+  - registros **nominais** exibem a **faixa de arquivos enviados**: arrastar para o lado ou **← / →** para navegar; clicar em um arquivo troca o visualizador de e-mail pelo **visualizador de arquivo**;
+  - abaixo: histórico completo com filtro **Nominais / Automáticos** e **5 a 50 mensagens por página**.
+
+**Pendente (backend)**
+
+- Enviar o JSON real e refletir o resultado do SMTP por item.
+- Persistir rotinas, status dos recebidos e histórico.
+
 ---
 
 ## 6. Arquivos aceitos e validação
@@ -339,7 +359,8 @@ Frontend/
         ├── mocks/
         │   ├── inicio.js     ← dados de exemplo (remover quando houver API)
         │   ├── servidores.js ← servidores e documentos de exemplo
-        │   └── calendario.js ← notas e marcações de exemplo
+        │   ├── calendario.js ← notas e marcações de exemplo
+        │   └── emails.js     ← template e histórico de exemplo
         ├── styles/
         │   ├── tokens.css    ← design tokens (fonte única de verdade)
         │   └── base.css      ← reset, tipografia e acessibilidade
@@ -359,8 +380,11 @@ Frontend/
         │   ├── PainelDocumentos.jsx
         │   ├── AreaFolhaDePonto.jsx (+ .module.css)
         │   ├── PainelCalendario.jsx (+ .module.css)
-        │   ├── FormularioEmail.jsx
-        │   └── ListaEnvios.jsx
+        │   ├── emails/
+        │   │   ├── emails.module.css ← estilos compartilhados pelas 3 abas
+        │   │   ├── EnviarPainel.jsx
+        │   │   ├── RecebidosPainel.jsx
+        │   │   └── HistoricoPainel.jsx
         └── pages/
             ├── Inicio.jsx
             ├── Inicio.module.css ← grid ⅔+⅓ (desktop) / ½+½ (tablet)
@@ -368,7 +392,8 @@ Frontend/
             ├── Servidor.module.css
             ├── Calendario.jsx
             ├── Calendario.module.css
-            └── Emails.jsx
+            ├── Emails.jsx
+            └── Emails.module.css
 ```
 
 - `node_modules/` já instalado e ignorado pelo `.gitignore` local.
@@ -378,7 +403,7 @@ Frontend/
 - **Ícones**: Bootstrap Icons (`<i className="bi bi-…" aria-hidden="true" />`), importado uma vez em `main.jsx`.
 - **Busca**: o painel do cache é um overlay com altura limitada; nunca empurra o layout.
 - **Carrossel** (Início e Servidor): sempre dentro de um contêiner com `overflow-x: auto`; os grids das páginas usam `minmax(0, 1fr)` para que conteúdo largo não estoure a viewport.
-- Componentes ainda sem UI: `ResumoRapido`, `FormularioEmail`, `ListaEnvios`.
+- Componentes ainda sem UI: `ResumoRapido`.
 
 ---
 
@@ -452,16 +477,16 @@ npm run preview  # pré-visualizar o build
 - [x] UI da tela Servidor (busca com cache, upload, painel lateral com abas e carrossel).
 - [x] UI da tela Calendário (notas, marcações em série, menu de contexto e recebimento de planilha).
 - [ ] Substituir os dados de exemplo (`src/mocks/*`) pela API real.
+- [x] Tela **Início** (calendário + cards).
+- [x] Tela **Servidor** (busca com pipe, cache, upload, validação, carrossel).
+- [x] Tela **Calendário** (notas editáveis, marcações em série, recebimento de planilha).
+- [x] Tela **Emails** (formulário, anexos, histórico com estados).
 - [ ] Visão semanal do calendário no mobile.
-- [ ] Eventos/feriados no calendário e modo de edição com salvamento otimista.
-- [ ] Definir estado global, cliente HTTP e UI kit.
+- [ ] Persistência real de notas/marcações e eventos/feriados.
+- [ ] Definir estado global e cliente HTTP.
 - [ ] Corrigir o backend para que a API suba e definir o contrato real.
-- [ ] Criar layout base: logo, NavBar, central de notificações, sistema de toasts.
-- [ ] Criar design tokens (cores, sombras, espaçamentos, tipografia) e componentes base (Button, Input, Card, Toast).
-- [ ] Tela **Início** (calendário + cards).
-- [ ] Tela **Servidor** (busca com pipe, cache, upload, validação, carrossel).
-- [ ] Tela **Emails** (formulário, envio, estados).
 - [ ] Configurar CORS e variável de ambiente com a URL da API.
+- [ ] Central de notificações e toasts com dados reais.
 - [ ] Definir estratégia de testes.
 
 ---

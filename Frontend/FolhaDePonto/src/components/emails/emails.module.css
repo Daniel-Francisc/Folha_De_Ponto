@@ -1,0 +1,706 @@
+/* ==========================================================================
+   Tela Emails — abas Enviar / Recebidos / Histórico
+   Compartilhado pelos três painéis.
+   ========================================================================== */
+
+.pagina {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* ---------- Abas ---------- */
+
+.abas {
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: 4px;
+  background-color: var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+  justify-self: start;
+}
+
+.aba {
+  padding: var(--space-2) var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.aba:hover {
+  color: var(--color-blue-700);
+}
+
+.abaAtiva {
+  color: var(--color-blue-900);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ---------- Grid de duas colunas ---------- */
+
+.grade {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.coluna {
+  min-width: 0;
+}
+
+/* ---------- Cartão ---------- */
+
+.card {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.cardCabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cardTitulo {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.cardSubtitulo {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Campos ---------- */
+
+.campo {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.rotulo {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.input,
+.select {
+  height: var(--control-height-md);
+}
+
+.select {
+  cursor: pointer;
+}
+
+.textarea {
+  padding-block: var(--space-2);
+  font-family: inherit;
+  line-height: var(--line-height-relaxed);
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus,
+.select:focus {
+  border-color: var(--color-blue-600);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.dica {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.erro {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  background-color: var(--color-danger-soft);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Botões ---------- */
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.botaoPrimario,
+.botaoSecundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height-md);
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.botaoPrimario {
+  color: var(--color-text-inverse);
+  background-color: var(--color-blue-900);
+  border: 1px solid var(--color-blue-900);
+}
+
+.botaoPrimario:hover {
+  background-color: var(--color-blue-700);
+  border-color: var(--color-blue-700);
+  box-shadow: var(--shadow-control-hover);
+}
+
+.botaoSecundario {
+  color: var(--color-blue-900);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.botaoSecundario:hover {
+  background-color: var(--color-blue-50);
+  border-color: var(--color-border-strong);
+}
+
+/* ---------- Dropzone (contexto vira receptor) ---------- */
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 200px;
+  padding: var(--space-5);
+  text-align: center;
+  background-color: var(--color-blue-50);
+  border: 2px dashed var(--color-blue-600);
+  border-radius: var(--radius-md);
+}
+
+.dropIcone {
+  margin-bottom: var(--space-2);
+  color: var(--color-blue-600);
+  font-size: 2rem;
+}
+
+.dropTitulo {
+  color: var(--color-blue-900);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dropTexto {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Lista de arquivos não enviados ---------- */
+
+.listaArquivos {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.arquivo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.arquivo:hover {
+  border-color: var(--color-border-strong);
+}
+
+.arquivoMarcado {
+  border-color: var(--color-blue-600);
+  background-color: var(--color-blue-50);
+}
+
+.arquivo input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-blue-600);
+  cursor: pointer;
+}
+
+.arquivoTexto {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.arquivoNome {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arquivoMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.score {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  background-color: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Visualizador de e-mail ---------- */
+
+.viewer {
+  display: grid;
+  gap: var(--space-3);
+  min-height: 320px;
+  align-content: start;
+}
+
+.viewerAssunto {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.viewerMeta {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.viewerCorpo {
+  margin: 0;
+  padding-top: var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-line;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ---------- Notificações laterais ---------- */
+
+.listaNotificacoes {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.notificacao {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.notificacao:hover {
+  border-color: var(--color-border-strong);
+}
+
+.notificacaoAtiva {
+  border-color: var(--color-blue-600);
+  background-color: var(--color-blue-50);
+}
+
+.notificacaoAssunto {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notificacaoMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Tabelas ---------- */
+
+.tabelaWrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.tabela th {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabela td {
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text);
+  vertical-align: middle;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tabela tbody tr:hover {
+  background-color: var(--color-blue-50);
+}
+
+.linhaSelecionada {
+  background-color: var(--color-blue-50);
+}
+
+.cellTrunc {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Badges de status ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.badgePendente {
+  color: #8a6100;
+  background-color: var(--color-warning-soft);
+}
+
+.badgeConcluida {
+  color: #0f5132;
+  background-color: var(--color-success-soft);
+}
+
+.badgeNegada {
+  color: #842029;
+  background-color: var(--color-danger-soft);
+}
+
+.badgeNeutra {
+  color: var(--color-text-muted);
+  background-color: var(--color-surface-muted);
+}
+
+/* ---------- Ações em linha ---------- */
+
+.acoesLinha {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.miniBotao {
+  padding: 3px 8px;
+  color: var(--color-blue-700);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.miniBotao:hover:not(:disabled) {
+  background-color: var(--color-blue-50);
+  border-color: var(--color-border-strong);
+}
+
+.miniBotao:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- Histórico ---------- */
+
+.resumoLista {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.resumoItem {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.resumoItem:hover {
+  border-color: var(--color-border-strong);
+}
+
+.resumoItemAtivo {
+  border-color: var(--color-blue-600);
+  background-color: var(--color-blue-50);
+}
+
+.resumoMeta {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* Faixa de arquivos enviados (arrastar / setas). */
+.faixa {
+  display: flex;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  cursor: grab;
+  scrollbar-width: thin;
+}
+
+.faixa:active {
+  cursor: grabbing;
+}
+
+.faixaItem {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 180px;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.faixaItem:hover {
+  border-color: var(--color-border-strong);
+}
+
+.faixaItemAtivo {
+  border-color: var(--color-blue-600);
+  background-color: var(--color-blue-50);
+}
+
+.faixaNome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Visualizador de arquivo (substitui o e-mail). */
+.arquivoViewer {
+  display: grid;
+  gap: var(--space-3);
+  place-items: center;
+  min-height: 330px;
+  padding: var(--space-6);
+  text-align: center;
+  background-color: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+}
+
+.arquivoIcone {
+  color: var(--color-blue-600);
+  font-size: 3rem;
+}
+
+/* Filtros do histórico completo. */
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.grupoFiltros {
+  display: flex;
+  gap: var(--space-1);
+  padding: 3px;
+  background-color: var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+}
+
+.filtro {
+  padding: var(--space-1) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.filtroAtivo {
+  color: var(--color-blue-900);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.porPagina {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.porPagina select {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.paginaInfo {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Rotina ---------- */
+
+.rotinaTabela td {
+  vertical-align: middle;
+}
+
+.rotinaData {
+  width: 210px;
+}
+
+/* ---------- Vazio ---------- */
+
+.vazio {
+  margin: 0;
+  padding: var(--space-4) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 1199px) {
+  .grade {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .abas {
+    width: 100%;
+  }
+
+  .aba {
+    flex: 1;
+    padding-inline: var(--space-2);
+  }
+
+  .card {
+    padding: var(--space-4);
+  }
+
+  .acoes {
+    flex-direction: column;
+  }
+
+  .acoes button {
+    width: 100%;
+  }
+
+  /* A tabela de rotina rola na horizontal em vez de espremer as colunas. */
+  .rotinaTabela {
+    min-width: 560px;
+  }
+}
