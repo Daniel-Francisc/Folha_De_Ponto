@@ -66,7 +66,7 @@ export default function BuscaServidor({
             onKeyDown={(evento) => {
               if (evento.key === 'Escape') setAberto(false)
             }}
-            placeholder="Número, nome ou número|nome"
+            placeholder="Número, nome ou número | nome"
             autoComplete="off"
             aria-expanded={aberto}
             aria-controls="resultados-servidores"

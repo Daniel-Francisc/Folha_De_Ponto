@@ -1,9 +1,7 @@
 /* ==========================================================================
-   Calendário acadêmico — UI da tela Início
-   Todos os valores vêm dos tokens (src/styles/tokens.css).
+   Calendário acadêmico — UI (Início e tela Calendário)
    ========================================================================== */
 
-/* Cartão que envolve o calendário. */
 .calendario {
   padding: var(--space-5);
   background-color: var(--color-surface);
@@ -35,7 +33,6 @@
   gap: var(--space-2);
 }
 
-/* Botões circulares de navegação (mês anterior / próximo). */
 .botaoNavegacao {
   display: inline-flex;
   align-items: center;
@@ -70,12 +67,9 @@
   width: 100%;
   table-layout: fixed;
   border-collapse: separate;
-  /* Sem espaçamento entre células: com border-spacing a tabela estoura
-     a largura do cartão em telas estreitas. O respiro vem do padding. */
   border-spacing: 0;
 }
 
-/* Cabeçalho dos dias da semana. */
 .diaSemana {
   padding: var(--space-2) 0;
   color: var(--color-text-muted);
@@ -86,15 +80,13 @@
   text-transform: uppercase;
 }
 
-/* Remove o sublinhado pontilhado padrão do <abbr>, mantendo o title. */
 .diaSemana abbr {
   text-decoration: none;
   cursor: default;
 }
 
-/* Célula de um dia. */
 .celula {
-  height: 72px;
+  height: 76px;
   padding: var(--space-1) var(--space-2);
   vertical-align: top;
   text-align: center;
@@ -107,12 +99,10 @@
   background-color: var(--color-blue-50);
 }
 
-/* Dias do mês exibido (classe explícita para facilitar a lógica futura). */
 .doMes {
   color: var(--color-text);
 }
 
-/* Dias adjacentes, usados apenas para completar a grade. */
 .foraDoMes {
   color: var(--color-border-strong);
 }
@@ -125,9 +115,39 @@
   background-color: var(--color-surface);
 }
 
+/* Dia coberto por nota: fundo azul claro (indicador visual).
+   Sem raio nas pontas: dias consecutivos formam uma faixa contínua,
+   sem "entalhes" brancos nas bordas entre células. */
+.comNota {
+  background-color: var(--color-blue-100);
+  border-radius: 0;
+}
+
+.comNota:hover {
+  background-color: var(--color-blue-100);
+  box-shadow: inset 0 0 0 1px var(--color-blue-300);
+}
+
+/* Dia selecionado na tela Calendário. */
+.selecionado {
+  box-shadow: inset 0 0 0 2px var(--color-blue-600);
+}
+
+/* Botão que cobre a área do dia (clique acessível). */
+.botaoDia {
+  display: block;
+  width: 100%;
+  padding: 0;
+  color: inherit;
+  text-align: center;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
 /* ---------- Dia atual ---------- */
 
-/* Só o número é destacado: evita que a célula pareça "selecionada". */
 .hoje:hover {
   background-color: var(--color-blue-50);
 }
@@ -138,7 +158,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* "Chip" com o número do dia. */
 .numeroDia {
   display: inline-flex;
   align-items: center;
@@ -152,23 +171,69 @@
   line-height: 1;
 }
 
-/* ---------- Eventos (estrutura pronta; sem dados por enquanto) ---------- */
+/* ---------- Marcações ---------- */
 
-.eventos {
+.marcadores {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-top: var(--space-1);
-  padding: 0;
-  list-style: none;
-  text-align: left;
+  margin-top: 2px;
+}
+
+.trilha {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 8px;
+}
+
+/* Cores das marcações. */
+.semAula {
+  --cor-marca: var(--color-danger);
+}
+
+.planejamento {
+  --cor-marca: #6f42c1;
+}
+
+.ponto {
+  position: relative;
+  z-index: 1;
+  width: 8px;
+  height: 8px;
+  background-color: var(--cor-marca);
+  border-radius: var(--radius-pill);
+}
+
+/*
+ * Conector entre dias consecutivos do mesmo tipo.
+ * Começa no centro (escondido atrás do ponto) e se estende até a borda da
+ * célula quando existe vizinho marcado, formando uma linha contínua.
+ */
+.conector {
+  position: absolute;
+  top: 50%;
+  right: 50%;
+  left: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background-color: var(--cor-marca);
+}
+
+.esquerda {
+  left: -8px;
+}
+
+.direita {
+  right: -8px;
 }
 
 /* ---------- Responsivo ---------- */
 
 @media (max-width: 1199px) {
   .celula {
-    height: 64px;
+    height: 68px;
   }
 }
 
@@ -178,7 +243,7 @@
   }
 
   .celula {
-    height: 52px;
+    height: 56px;
     padding: var(--space-1);
   }
 

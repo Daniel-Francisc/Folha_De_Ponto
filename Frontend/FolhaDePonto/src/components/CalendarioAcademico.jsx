@@ -11,18 +11,26 @@ import {
 /**
  * Calendário acadêmico (Frontend/Agent.md, seções 5.1 e 5.3).
  *
- * O QUE JÁ EXISTE
- * - Grade de mês completa (semanas domingo → sábado), com dias adjacentes.
- * - Navegação mês anterior / próximo mês.
- * - Destaque do dia atual e diferenciação dos dias fora do mês.
+ * É usado em dois lugares:
+ * - Início: sem interação (só exibição).
+ * - Calendário: com clique no dia, menu de contexto e marcações.
  *
- * O QUE AINDA FALTA (marcado com TODO abaixo)
- * - Exibir eventos/feriados dentro das células.
- * - Visão semanal exclusiva para mobile.
- * - Modo de edição usado pela tela Calendário.
+ * @param {string|null} diaSelecionado  dia destacado (YYYY-MM-DD)
+ * @param {Object} marcas               { 'YYYY-MM-DD': ['semAula' | 'planejamento'] }
+ * @param {Set<string>} diasComNota     dias cobertos por alguma nota (fundo azul claro)
+ * @param {(iso: string) => void} [onDiaClique]
+ * @param {(evento: MouseEvent, iso: string) => void} [onDiaContextMenu]
  */
-export default function CalendarioAcademico() {
-  // "hoje" é lido a cada renderização; o destaque acompanha a virada do dia.
+
+const TIPOS = ['semAula', 'planejamento']
+
+export default function CalendarioAcademico({
+  diaSelecionado = null,
+  marcas = {},
+  diasComNota = new Set(),
+  onDiaClique,
+  onDiaContextMenu,
+}) {
   const hoje = new Date()
 
   // Estado do mês exibido: { ano, mes } com mes 0–11 (padrão do Date).
@@ -30,8 +38,6 @@ export default function CalendarioAcademico() {
     ano: hoje.getFullYear(),
     mes: hoje.getMonth(),
   }))
-
-  // Id único para ligar a tabela ao título (leitor de tela anuncia o mês).
   const tituloId = useId()
 
   const semanas = criarMatrizDoMes(referencia.ano, referencia.mes)
@@ -78,17 +84,11 @@ export default function CalendarioAcademico() {
       </header>
 
       {/* ---------- Grade do mês ---------- */}
-      {/*
-        Tabela semântica: colunas são os dias da semana, linhas são as semanas.
-        aria-labelledby liga a tabela ao título ("Outubro de 2026"), evitando
-        que o leitor de tela leia a grade sem contexto.
-      */}
       <table className={styles.tabela} aria-labelledby={tituloId}>
         <thead>
           <tr>
             {DIAS_DA_SEMANA.map(({ curto, extenso }) => (
               <th key={curto} scope="col" className={styles.diaSemana}>
-                {/* abbr: mostra "seg" e expande para "segunda-feira" */}
                 <abbr title={extenso}>{curto}</abbr>
               </th>
             ))}
@@ -98,14 +98,25 @@ export default function CalendarioAcademico() {
         <tbody>
           {semanas.map((semana) => (
             <tr key={semana[0].chave}>
-              {semana.map(({ chave, dia, doMes, data }) => {
+              {semana.map(({ chave, dia, doMes, data }, indice) => {
                 const ehHoje = chave === hojeISO
+                const selecionado = chave === diaSelecionado
+                const temNota = diasComNota.has(chave)
+                const marcasDoDia = marcas[chave] ?? []
 
-                // Classes condicionais: base + fora do mês + hoje.
+                // Vizinhos na MESMA semana: usados para conectar a linha
+                // quando o usuário marca uma sequência de dias.
+                const anterior =
+                  indice > 0 ? (marcas[semana[indice - 1].chave] ?? []) : []
+                const proximo =
+                  indice < semana.length - 1 ? (marcas[semana[indice + 1].chave] ?? []) : []
+
                 const classes = [
                   styles.celula,
                   doMes ? styles.doMes : styles.foraDoMes,
+                  temNota ? styles.comNota : '',
                   ehHoje ? styles.hoje : '',
+                  selecionado ? styles.selecionado : '',
                 ]
                   .filter(Boolean)
                   .join(' ')
@@ -114,20 +125,43 @@ export default function CalendarioAcademico() {
                   <td
                     key={chave}
                     className={classes}
-                    aria-label={formatarDataCompleta(data)}
+                    onContextMenu={(evento) => onDiaContextMenu?.(evento, chave)}
                   >
-                    {/* O número do dia fica num "chip" para o destaque de hoje. */}
-                    <span className={styles.numeroDia}>
-                      <time dateTime={chave}>{dia}</time>
-                    </span>
+                    <button
+                      type="button"
+                      className={styles.botaoDia}
+                      onClick={() => onDiaClique?.(chave)}
+                      aria-label={formatarDataCompleta(data)}
+                      aria-pressed={selecionado}
+                    >
+                      <span className={styles.numeroDia}>
+                        <time dateTime={chave}>{dia}</time>
+                      </span>
+                    </button>
 
-                    {/*
-                      TODO (lógica): mapa de eventos por data
-                      Ex.: eventosPorData[chave]?.map(...) renderizando
-                      <ul className={styles.eventos}> com os títulos.
-                      Enquanto não há dados, o container fica vazio.
-                    */}
-                    <ul className={styles.eventos} />
+                    {/* Duas trilhas fixas (uma por tipo) mantêm os pontos alinhados. */}
+                    <div className={styles.marcadores} aria-hidden="true">
+                      {TIPOS.map((tipo) => {
+                        const ativo = marcasDoDia.includes(tipo)
+                        const conectaEsquerda = ativo && anterior.includes(tipo)
+                        const conectaDireita = ativo && proximo.includes(tipo)
+
+                        return (
+                          <span key={tipo} className={`${styles.trilha} ${styles[tipo]}`}>
+                            {ativo && (
+                              <>
+                                <span
+                                  className={`${styles.conector} ${
+                                    conectaEsquerda ? styles.esquerda : ''
+                                  } ${conectaDireita ? styles.direita : ''}`}
+                                />
+                                <span className={styles.ponto} />
+                              </>
+                            )}
+                          </span>
+                        )
+                      })}
+                    </div>
                   </td>
                 )
               })}

@@ -1,0 +1,421 @@
+/* ==========================================================================
+   Painel lateral do calendário — notas, marcações e recebimento de planilha
+   ========================================================================== */
+
+.painel {
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---------- Estado vazio ---------- */
+
+.vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+}
+
+.vazioIcone {
+  color: var(--color-blue-300);
+  font-size: 2.5rem;
+}
+
+.vazioTexto {
+  max-width: 28ch;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* ---------- Detalhe da nota ---------- */
+
+.detalheCabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.detalheTexto {
+  min-width: 0;
+}
+
+.etiqueta {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.detalheTitulo {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+/* Botão "Editar": azul escuro com lápis branco, no topo à direita. */
+.botaoEditar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-height-sm);
+  padding: 0 var(--space-4);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-blue-900);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.botaoEditar:hover {
+  background-color: var(--color-blue-700);
+  box-shadow: var(--shadow-control-hover);
+}
+
+.periodo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-blue-700);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-blue-50);
+  border-radius: var(--radius-pill);
+}
+
+.contexto {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  white-space: pre-line;
+}
+
+/* ---------- Formulários ---------- */
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.formCabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.formTitulo {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.formSubtitulo {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.campo {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.rotulo {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.input,
+.textarea {
+  width: 100%;
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.input {
+  height: var(--control-height-md);
+}
+
+.textarea {
+  padding-block: var(--space-2);
+  font-family: inherit;
+  line-height: var(--line-height-normal);
+  resize: vertical;
+}
+
+.input:focus,
+.textarea:focus {
+  border-color: var(--color-blue-600);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.duasColunas {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.erro {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  background-color: var(--color-danger-soft);
+  border-radius: var(--radius-sm);
+}
+
+.botaoPrimario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-blue-600);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.botaoPrimario:hover {
+  background-color: var(--color-blue-700);
+  box-shadow: var(--shadow-control-hover);
+}
+
+.acoes {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.acoes .botaoPrimario {
+  flex: 1;
+}
+
+.botaoSecundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height-md);
+  padding: 0 var(--space-4);
+  color: var(--color-blue-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.botaoSecundario:hover {
+  background-color: var(--color-blue-50);
+  border-color: var(--color-border-strong);
+}
+
+.fechar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.fechar:hover {
+  color: var(--color-blue-700);
+  background-color: var(--color-blue-50);
+}
+
+/* ---------- Tipos de marcação ---------- */
+
+.tipos {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tipoOpcao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.tipoOpcao:hover {
+  background-color: var(--color-blue-50);
+}
+
+.esfera {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+}
+
+.semAula {
+  background-color: var(--color-danger);
+}
+
+.planejamento {
+  background-color: #6f42c1;
+}
+
+/* ---------- Recebimento de planilha ---------- */
+
+.recebimento {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  background-color: var(--color-blue-50);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.dropzone:hover,
+.dropzoneAtiva {
+  background-color: var(--color-blue-100);
+  border-color: var(--color-blue-600);
+}
+
+.dropIcone {
+  margin-bottom: var(--space-2);
+  color: var(--color-blue-600);
+  font-size: 2rem;
+}
+
+.dropTitulo {
+  color: var(--color-blue-900);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dropTexto {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.dropNota {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.arquivoOk,
+.arquivoErro {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+.arquivoOk {
+  background-color: var(--color-success-soft);
+}
+
+.arquivoErro {
+  background-color: var(--color-danger-soft);
+}
+
+.arquivoIcone {
+  margin-top: 2px;
+  color: var(--color-success);
+  font-size: var(--font-size-md);
+}
+
+.arquivoErro .arquivoIcone {
+  color: var(--color-danger);
+}
+
+.arquivoNome {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.arquivoMeta {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 767px) {
+  .painel {
+    padding: var(--space-4);
+  }
+
+  .duasColunas {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,4 +1,5 @@
 .env*
+!.env.example
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -219,3 +220,51 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================================================================
+# Frontend / Node — artefatos gerados (não versionar)
+# ==========================================================================
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.npm-cache/
+.tmp/
+coverage/
+*.local
+
+# Logs de gerenciadores de pacote
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================================================
+# Sistema operacional
+# ==========================================================================
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+desktop.ini
+.DS_Store
+.Spotlight-V100
+.Trashes
+
+# ==========================================================================
+# Editores / IDEs
+# ==========================================================================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+
+# ==========================================================================
+# Utilitários locais
+# ==========================================================================
+*.tmp

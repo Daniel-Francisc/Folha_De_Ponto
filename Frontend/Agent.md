@@ -59,7 +59,7 @@ Navegador (React + Vite)  ──HTTP/JSON──▶  FastAPI (Python)  ──▶ 
 
 SPA em JavaScript/JSX servida pelo Vite. É a única interface do usuário: upload, validação dos dados lidos, edição do calendário, envio de e-mails, notificações e mensagens de erro.
 
-**Estado atual: Início e Servidor com UI.** Tokens, base, shell global, Início (calendário + cards) e Servidor (busca com cache, upload, painel lateral com abas) estilizados. Tudo com dados de exemplo em `src/mocks/`. Calendário e Emails seguem sem UI.
+**Estado atual: Início, Servidor e Calendário com UI.** Tokens, base, shell global e as três telas estilizadas; tudo com dados de exemplo em `src/mocks/`. Falta a tela **Emails**.
 
 ---
 
@@ -224,17 +224,35 @@ Dividida em **três regiões**.
 
 ### 5.3 Calendário
 
-- Recebe arquivo **`.xls` ou `.xlsx`**.
-- O backend lê e retorna **JSON**; o frontend converte em **calendário acadêmico visual**.
-- O calendário é **editável** pelo usuário (adicionar/editar/remover eventos e datas).
-- Fluxo de salvamento (**otimista em cache**):
-  1. A alteração é aplicada **primeiro no cache** (atualização otimista da UI).
-  2. Dispara **toast no canto inferior direito**:
-     - `warning` amarelo + **ícone de carregamento** enquanto envia.
-     - `danger` vermelho + **X** em caso de erro (e **reverter** a alteração otimista).
-     - `success` verde + **ícone de sucesso** ao confirmar.
-  3. Em seguida, o calendário atualizado é **enviado ao backend**.
+**Layout**
+
+- Desktop: calendário em **⅔** + painel em **⅓**.
+- Tablet/mobile: calendário na **linha inteira**, painel **abaixo**, com **FAB** azul escuro (`+ Enviar arquivo`).
+
+**Interações implementadas**
+
+- **Clique no dia**:
+  - se o dia já está coberto por uma nota → o painel mostra **título, período e contexto**;
+  - se não há nota → abre o **formulário** (nome, data de início, data de fim, contexto) já preenchido com o dia clicado.
+- **Dias com nota** recebem **fundo azul claro** no calendário (dias consecutivos formam uma faixa contínua).
+- **Botão Editar**: no topo à direita da nota aberta, azul escuro com ícone de lápis branco. Abre o formulário preenchido com os dados atuais e oferece "Salvar alterações" / "Cancelar".
+- **Botão direito no dia**: abre um **menu de contexto** com
+  - “Marcar como sem aula” (esfera **vermelha**),
+  - “Marcar como planejamento” (esfera **roxa**),
+  - “Marcar intervalo…” → painel com tipo + início + fim.
+- **Sequência**: dias consecutivos do mesmo tipo têm os pontos **conectados por uma linha**.
+- **Arrastar arquivo sobre a página**: o painel vira **área de recebimento** de `.xls/.xlsx` (também acessível pelo FAB ou clique).
+- Todo o estado é **local** (memória): nada é enviado ao backend ainda.
+
+**Pendente (quando houver backend)**
+
+- Enviar a planilha e converter o JSON retornado em eventos do calendário.
+- Salvamento **otimista em cache** com toasts:
+  1. aplica a alteração no cache;
+  2. dispara toast `warning` + carregamento enquanto envia;
+  3. `danger` + X em erro (revertendo a alteração) ou `success` + check ao confirmar.
 - Nunca descartar a edição do usuário sem aviso: se o envio falhar, manter o dado e oferecer "tentar novamente".
+- Visão **semanal** no mobile.
 
 ### 5.4 Emails
 
@@ -316,10 +334,12 @@ Frontend/
         │   └── logo-undf.png ← logo oficial da universidade
         ├── utils/
         │   ├── calendario.js ← matriz do mês, datas e rótulos (sem UI)
+        │   ├── marcas.js     ← alternar marca, intervalo e nota do dia
         │   └── busca.js      ← normalização e filtro "número|nome"
         ├── mocks/
         │   ├── inicio.js     ← dados de exemplo (remover quando houver API)
-        │   └── servidores.js ← servidores e documentos de exemplo
+        │   ├── servidores.js ← servidores e documentos de exemplo
+        │   └── calendario.js ← notas e marcações de exemplo
         ├── styles/
         │   ├── tokens.css    ← design tokens (fonte única de verdade)
         │   └── base.css      ← reset, tipografia e acessibilidade
@@ -337,8 +357,8 @@ Frontend/
         │   ├── ResumoRapido.jsx
         │   ├── BuscaServidor.jsx
         │   ├── PainelDocumentos.jsx
-        │   ├── AreaFolhaDePonto.jsx
-        │   ├── ImportadorCalendario.jsx
+        │   ├── AreaFolhaDePonto.jsx (+ .module.css)
+        │   ├── PainelCalendario.jsx (+ .module.css)
         │   ├── FormularioEmail.jsx
         │   └── ListaEnvios.jsx
         └── pages/
@@ -347,6 +367,7 @@ Frontend/
             ├── Servidor.jsx
             ├── Servidor.module.css
             ├── Calendario.jsx
+            ├── Calendario.module.css
             └── Emails.jsx
 ```
 
@@ -357,7 +378,7 @@ Frontend/
 - **Ícones**: Bootstrap Icons (`<i className="bi bi-…" aria-hidden="true" />`), importado uma vez em `main.jsx`.
 - **Busca**: o painel do cache é um overlay com altura limitada; nunca empurra o layout.
 - **Carrossel** (Início e Servidor): sempre dentro de um contêiner com `overflow-x: auto`; os grids das páginas usam `minmax(0, 1fr)` para que conteúdo largo não estoure a viewport.
-- Componentes ainda sem UI: `ResumoRapido`, `ImportadorCalendario`, `FormularioEmail`, `ListaEnvios`.
+- Componentes ainda sem UI: `ResumoRapido`, `FormularioEmail`, `ListaEnvios`.
 
 ---
 
@@ -429,6 +450,7 @@ npm run preview  # pré-visualizar o build
 - [x] UI do calendário (cartão, cabeçalho, grade, destaque de hoje, responsivo).
 - [x] Cards Funcionários e Emails + grid responsivo da tela Início.
 - [x] UI da tela Servidor (busca com cache, upload, painel lateral com abas e carrossel).
+- [x] UI da tela Calendário (notas, marcações em série, menu de contexto e recebimento de planilha).
 - [ ] Substituir os dados de exemplo (`src/mocks/*`) pela API real.
 - [ ] Visão semanal do calendário no mobile.
 - [ ] Eventos/feriados no calendário e modo de edição com salvamento otimista.
@@ -438,7 +460,6 @@ npm run preview  # pré-visualizar o build
 - [ ] Criar design tokens (cores, sombras, espaçamentos, tipografia) e componentes base (Button, Input, Card, Toast).
 - [ ] Tela **Início** (calendário + cards).
 - [ ] Tela **Servidor** (busca com pipe, cache, upload, validação, carrossel).
-- [ ] Tela **Calendário** (importação, edição, salvamento otimista).
 - [ ] Tela **Emails** (formulário, envio, estados).
 - [ ] Configurar CORS e variável de ambiente com a URL da API.
 - [ ] Definir estratégia de testes.
