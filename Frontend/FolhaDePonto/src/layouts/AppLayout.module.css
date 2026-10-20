@@ -24,9 +24,32 @@
   padding: var(--space-2) var(--layout-gutter);
 }
 
+.acoes {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .main {
   width: 100%;
   max-width: var(--layout-max-width);
   margin-inline: auto;
   padding: var(--space-6) var(--layout-gutter) var(--space-12);
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 767px) {
+  /* Centraliza as quatro telas em uma linha... */
+  .navRow {
+    justify-content: center;
+    padding-top: var(--space-2);
+  }
+
+  /* ...e move o sino para o topo, ao lado da logo. */
+  .acoes {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--layout-gutter);
+  }
 }

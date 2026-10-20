@@ -8,6 +8,10 @@ import Toasts from '../components/Toasts.jsx'
 /**
  * Estrutura global presente em todas as telas (Frontend/Agent.md, seção 3.4):
  * logo centralizada, NavBar com todas as telas e central de notificações.
+ *
+ * No mobile, o bloco de notificações sai da linha da NavBar e sobe para o
+ * canto superior direito (ver AppLayout.module.css), liberando espaço para
+ * as quatro telas caberem em uma única linha.
  */
 export default function AppLayout() {
   return (
@@ -19,7 +23,10 @@ export default function AppLayout() {
 
         <div className={styles.navRow}>
           <NavBar />
-          <CentralNotificacoes />
+
+          <div className={styles.acoes}>
+            <CentralNotificacoes />
+          </div>
         </div>
       </header>
 

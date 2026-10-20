@@ -1,0 +1,81 @@
+/* ==========================================================================
+   Card "Funcionários" — azul escuro com ícone azul claro
+   ========================================================================== */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-4);
+  height: 100%;
+  padding: var(--space-6);
+  overflow: hidden;
+  background-color: var(--color-blue-900);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.texto {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Título no mesmo azul do ícone. */
+.titulo {
+  margin: 0;
+  color: var(--color-blue-300);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+/* Número grande, em branco, para leitura imediata. */
+.valor {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-inverse);
+  font-size: clamp(2.5rem, 4vw, 3.5rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.legenda {
+  margin: var(--space-2) 0 0;
+  color: var(--color-blue-300);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+/* Ícone grande no azul claro, empurrado para o rodapé do card. */
+.icone {
+  margin-top: auto;
+  color: var(--color-blue-300);
+  font-size: clamp(2.5rem, 4vw, 3.25rem);
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 767px) {
+  .card {
+    padding: var(--space-5);
+  }
+
+  /* O card passa a ocupar a linha inteira e o conteúdo fica lado a lado. */
+  .texto {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .valor {
+    margin: 0;
+  }
+
+  .legenda {
+    flex-basis: 100%;
+    margin: 0;
+  }
+}

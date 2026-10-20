@@ -1,0 +1,44 @@
+/* ==========================================================================
+   Tela Servidor — busca no topo + central e painel lateral lado a lado
+   ========================================================================== */
+
+.pagina {
+  display: grid;
+  /* minmax(0, 1fr) impede que a coluna cresça até o min-content dos filhos
+     (era o que fazia o carrossel empurrar o painel para fora da tela). */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.conteudo {
+  display: flex;
+  min-width: 0;
+  gap: var(--space-5);
+  align-items: flex-start;
+}
+
+/*
+ * row-reverse inverte a ordem visual sem mexer no DOM:
+ * o painel (segundo filho) passa para a esquerda quando o usuário o move.
+ */
+.conteudo[data-lado='esquerda'] {
+  flex-direction: row-reverse;
+}
+
+.central {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- Tablet / mobile: empilha ---------- */
+
+@media (max-width: 1023px) {
+  .conteudo,
+  .conteudo[data-lado='esquerda'] {
+    flex-direction: column;
+  }
+
+  .central {
+    width: 100%;
+  }
+}

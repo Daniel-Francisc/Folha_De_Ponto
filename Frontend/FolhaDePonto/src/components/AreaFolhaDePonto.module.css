@@ -1,0 +1,281 @@
+/* ==========================================================================
+   Área central — upload, visualização e carrossel de arquivos
+   ========================================================================== */
+
+.area {
+  min-width: 0;
+  padding: var(--space-5);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---------- Barra superior ---------- */
+
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.barraTexto {
+  min-width: 0;
+}
+
+.titulo {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitulo {
+  margin: 2px 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Botão primário (label que abre o seletor de arquivo). */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: var(--control-height-sm);
+  color: var(--color-text-inverse);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-blue-600);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.botao:hover {
+  background-color: var(--color-blue-700);
+  box-shadow: var(--shadow-control-hover);
+}
+
+/* Botão secundário. */
+.botaoSecundario {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: var(--control-height-sm);
+  color: var(--color-blue-700);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-control);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.botaoSecundario:hover {
+  background-color: var(--color-blue-50);
+  border-color: var(--color-border-strong);
+}
+
+/* ---------- Zona de upload ---------- */
+
+.upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 360px;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  background-color: var(--color-blue-50);
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.upload:hover {
+  background-color: var(--color-blue-100);
+  border-color: var(--color-blue-600);
+}
+
+.uploadIcone {
+  margin-bottom: var(--space-2);
+  color: var(--color-blue-600);
+  font-size: 2.5rem;
+}
+
+.uploadTitulo {
+  color: var(--color-blue-900);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.uploadTexto {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.uploadNota {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Visualização ---------- */
+
+.visualizador {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+  padding: var(--space-6);
+  text-align: center;
+  background-color: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.previewIcone {
+  color: var(--color-blue-600);
+  font-size: 3rem;
+}
+
+.previewNome {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.previewNota {
+  max-width: 40ch;
+  margin: var(--space-1) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ---------- Carrossel ---------- */
+
+.carrossel {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.carrosselLista {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
+.carrosselItem {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.miniatura {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 200px;
+  padding: var(--space-3);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.miniatura:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+.ativa {
+  border-color: var(--color-blue-600);
+  box-shadow: var(--shadow-focus);
+}
+
+.miniaturaNome {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.miniaturaStatus {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* Faixa colorida no topo da miniatura, por estado. */
+.miniatura {
+  border-top: 3px solid var(--color-border);
+}
+
+.corrigido {
+  border-top-color: var(--color-info);
+}
+
+.ok {
+  border-top-color: var(--color-doc-ok);
+}
+
+.baixo {
+  border-top-color: var(--color-doc-low-score);
+}
+
+.nao_escaneado {
+  border-top-color: var(--color-border-strong);
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 767px) {
+  .barra {
+    align-items: flex-start;
+  }
+
+  .acoes {
+    width: 100%;
+  }
+
+  .upload,
+  .visualizador {
+    min-height: 240px;
+  }
+}

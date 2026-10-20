@@ -1,0 +1,254 @@
+/* ==========================================================================
+   Painel lateral — documentos (com cores de estado) e dados editáveis
+   ========================================================================== */
+
+.painel {
+  position: sticky;
+  /* Header mede 153 px em desktop; 170 px garante 17 px de respiro e
+     evita que o topo do painel fique escondido sob o header fixo. */
+  top: 170px;
+  flex: 0 0 330px;
+  width: 330px;
+  padding: var(--space-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.titulo {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.mover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.mover:hover {
+  color: var(--color-blue-700);
+  background-color: var(--color-blue-50);
+}
+
+/* ---------- Abas ---------- */
+
+.abas {
+  display: flex;
+  gap: var(--space-1);
+  padding: 3px;
+  margin-bottom: var(--space-3);
+  background-color: var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+}
+
+.aba {
+  flex: 1;
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.aba:hover {
+  color: var(--color-blue-700);
+}
+
+.abaAtiva {
+  color: var(--color-blue-900);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.painelAba {
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+/* ---------- Lista de documentos ---------- */
+
+.lista {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.item:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-xs);
+}
+
+.ativo {
+  border-color: var(--color-blue-600);
+  box-shadow: var(--shadow-focus);
+}
+
+/* Marcador colorido por estado. */
+.marcador {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+}
+
+.corrigido .marcador {
+  background-color: var(--color-info);
+}
+
+.ok .marcador {
+  background-color: var(--color-doc-ok);
+}
+
+.baixo .marcador {
+  background-color: var(--color-doc-low-score);
+}
+
+.nao_escaneado .marcador {
+  background-color: var(--color-border-strong);
+}
+
+.itemTexto {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.nome {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusTexto {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.score {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  color: var(--color-text-muted);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  background-color: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- Aba de dados ---------- */
+
+.arquivoAtivo {
+  margin: 0 0 var(--space-3);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.campo {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.campoRotulo {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.input {
+  height: var(--control-height-md);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.input:focus {
+  border-color: var(--color-blue-600);
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.nota {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-normal);
+}
+
+.vazio {
+  margin: 0;
+  padding: var(--space-4) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Responsivo ---------- */
+
+@media (max-width: 1023px) {
+  .painel {
+    position: static;
+    width: 100%;
+    flex-basis: auto;
+  }
+}

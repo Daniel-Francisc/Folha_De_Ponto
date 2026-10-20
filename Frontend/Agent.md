@@ -8,7 +8,7 @@
 
 ## 1. Objetivo do sistema (visão de produto)
 
-O **Folha de Ponto** é uma aplicação de apoio ao processamento de **folhas de ponto físicas assinadas**, digitalizadas em PDF, no contexto administrativo/acadêmico da **Universidade do Distrito Federal Jorge Amaury Maia Nunes**.
+O **Folha de Ponto** é uma aplicação de apoio ao processamento de **folhas de ponto físicas assinadas**, digitalizadas em PDF, no contexto administrativo/acadêmico da **Universidade do Distrito Federal Professor Jorge Amaury Maia Nunes**.
 
 O problema: todos os meses chegam dezenas/centenas de PDFs digitalizados, misturados, com nomes inconsistentes, e alguém precisa identificar de quem é cada folha, a qual mês/ano (competência) ela pertence, renomear, organizar em pastas e enviar por e-mail. Isso é manual, repetitivo e sujeito a erro.
 
@@ -59,7 +59,7 @@ Navegador (React + Vite)  ──HTTP/JSON──▶  FastAPI (Python)  ──▶ 
 
 SPA em JavaScript/JSX servida pelo Vite. É a única interface do usuário: upload, validação dos dados lidos, edição do calendário, envio de e-mails, notificações e mensagens de erro.
 
-**Estado atual: UI iniciada pelo shell global.** Existem tokens, base CSS, layout global estilizado (header, NavBar, sino) e os esqueletos dos demais componentes. As **páginas ainda não têm UI** — só `<h1>` e containers sem estilo.
+**Estado atual: Início e Servidor com UI.** Tokens, base, shell global, Início (calendário + cards) e Servidor (busca com cache, upload, painel lateral com abas) estilizados. Tudo com dados de exemplo em `src/mocks/`. Calendário e Emails seguem sem UI.
 
 ---
 
@@ -108,8 +108,9 @@ Botões, links e inputs **não precisam existir em todas as telas**, mas quando 
 
 ### 3.4 Layout global — presente em **todas** as telas
 
-1. **Logo do sistema**: logo da **Universidade do Distrito Federal Jorge Amaury Maia Nunes**, **centralizada acima da NavBar**, em todas as telas.
-   - ⚠️ O arquivo da logo **ainda não está no repositório**. Não invente/reproduza o brasão: use um placeholder neutro com `alt` descritivo e solicite o arquivo oficial.
+1. **Logo do sistema**: logo da **Universidade do Distrito Federal Professor Jorge Amaury Maia Nunes**, **centralizada acima da NavBar**, em todas as telas.
+   - Arquivo: `src/assets/logo-undf.png`, importado por `LogoUniversidade` e exibido com altura fluida (`clamp(56px, 7vw, 84px)`).
+   - O arquivo original tinha margens brancas grandes; foi recortado para 357×329 px.
 2. **NavBar** com **todas as telas navegáveis**: Início, Servidor, Calendário, Emails. Item ativo destacado; navegação por teclado; versão colapsada (menu) em telas pequenas.
 3. **Central de notificações**: lista dos **últimos envios de arquivos**, com estado **sucesso**, **erro** ou **em andamento**. Deve estar acessível em todas as telas (ex.: ícone de sino na NavBar com painel/dropdown). Cada item: ícone + cor do estado, nome do arquivo, data/hora e mensagem curta. Deve persistir ao navegar entre telas.
 
@@ -193,7 +194,9 @@ Dividida em **três regiões**.
 **A) Superior — busca**
 
 - Campo de busca de servidores.
-- **Ao ser selecionada, a parte inferior colapsa para baixo**, exibindo a lista de servidores cadastrados no **cache**.
+- **Ao ser selecionada, abre um painel flutuante (overlay)** com a lista de servidores do **cache**, sem empurrar o conteúdo abaixo.
+- Altura máxima fixa (~280 px) com rolagem interna — a lista nunca "cresce infinito".
+- Fecha ao clicar fora, ao pressionar `Esc` ou ao escolher um servidor.
 - Formato da consulta: **somente número**, **somente nome**, ou **combinação dos dois separada por pipe `|`**.
   - `12345` → busca por número.
   - `Maria Silva` → busca por nome.
@@ -309,6 +312,14 @@ Frontend/
     └── src/
         ├── main.jsx          ← bootstrap + BrowserRouter + CSS global
         ├── App.jsx           ← mapa de rotas
+        ├── assets/
+        │   └── logo-undf.png ← logo oficial da universidade
+        ├── utils/
+        │   ├── calendario.js ← matriz do mês, datas e rótulos (sem UI)
+        │   └── busca.js      ← normalização e filtro "número|nome"
+        ├── mocks/
+        │   ├── inicio.js     ← dados de exemplo (remover quando houver API)
+        │   └── servidores.js ← servidores e documentos de exemplo
         ├── styles/
         │   ├── tokens.css    ← design tokens (fonte única de verdade)
         │   └── base.css      ← reset, tipografia e acessibilidade
@@ -332,7 +343,9 @@ Frontend/
         │   └── ListaEnvios.jsx
         └── pages/
             ├── Inicio.jsx
+            ├── Inicio.module.css ← grid ⅔+⅓ (desktop) / ½+½ (tablet)
             ├── Servidor.jsx
+            ├── Servidor.module.css
             ├── Calendario.jsx
             └── Emails.jsx
 ```
@@ -342,7 +355,9 @@ Frontend/
 - Router: `react-router-dom`. Não há estado global, cliente HTTP nem testes.
 - **Estilos**: CSS Modules (`Componente.module.css`) — sem dependência extra, escopo local. Cores/espaços/sombras **somente** via tokens de `styles/tokens.css`; nunca valores literais.
 - **Ícones**: Bootstrap Icons (`<i className="bi bi-…" aria-hidden="true" />`), importado uma vez em `main.jsx`.
-- Componentes sem UI ainda: `CalendarioAcademico`, `CardFuncionarios`, `CardEmails`, `ResumoRapido`, `BuscaServidor`, `PainelDocumentos`, `AreaFolhaDePonto`, `ImportadorCalendario`, `FormularioEmail`, `ListaEnvios`.
+- **Busca**: o painel do cache é um overlay com altura limitada; nunca empurra o layout.
+- **Carrossel** (Início e Servidor): sempre dentro de um contêiner com `overflow-x: auto`; os grids das páginas usam `minmax(0, 1fr)` para que conteúdo largo não estoure a viewport.
+- Componentes ainda sem UI: `ResumoRapido`, `ImportadorCalendario`, `FormularioEmail`, `ListaEnvios`.
 
 ---
 
@@ -390,7 +405,7 @@ npm run preview  # pré-visualizar o build
 
 ## 12. Dúvidas em aberto (confirmar antes de implementar)
 
-1. **Logo oficial** da universidade: arquivo e versão (SVG/PNG) ainda não existem no repositório.
+1. ~~**Logo oficial**~~ — **resolvido**: `src/assets/logo-undf.png` (PNG 357×329, margens brancas recortadas). Melhoria futura desejável: versão vetorial (SVG) para telas de alta densidade.
 2. ~~**Biblioteca de ícones**~~ — **decidido**: **Bootstrap Icons** (`bootstrap-icons`, via npm), usada como fonte de ícones `<i className="bi bi-…">`.
 3. **Tecnologia de cache** dos servidores: `localStorage` ou IndexedDB? Qual a política de expiração?
 4. ~~**Router**~~ — **decidido**: React Router (`react-router-dom`). Rotas: `/`, `/servidores`, `/calendario`, `/emails`; rota desconhecida redireciona para `/`.
@@ -410,6 +425,13 @@ npm run preview  # pré-visualizar o build
 - [x] Esqueletos dos elementos gráficos criados (sem UI).
 - [x] Design tokens e base global (`src/styles/tokens.css` e `base.css`).
 - [x] UI do shell global (header, NavBar, logo placeholder, sino de notificações).
+- [x] Esqueleto funcional do calendário (matriz do mês + navegação), sem estilos.
+- [x] UI do calendário (cartão, cabeçalho, grade, destaque de hoje, responsivo).
+- [x] Cards Funcionários e Emails + grid responsivo da tela Início.
+- [x] UI da tela Servidor (busca com cache, upload, painel lateral com abas e carrossel).
+- [ ] Substituir os dados de exemplo (`src/mocks/*`) pela API real.
+- [ ] Visão semanal do calendário no mobile.
+- [ ] Eventos/feriados no calendário e modo de edição com salvamento otimista.
 - [ ] Definir estado global, cliente HTTP e UI kit.
 - [ ] Corrigir o backend para que a API suba e definir o contrato real.
 - [ ] Criar layout base: logo, NavBar, central de notificações, sistema de toasts.

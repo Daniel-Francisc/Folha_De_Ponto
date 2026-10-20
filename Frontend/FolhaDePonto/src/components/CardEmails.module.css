@@ -1,0 +1,201 @@
+/* ==========================================================================
+   Card "Emails" — cores inversas ao card Funcionários
+   Fundo azul claro, texto e ícone em azul escuro.
+   ========================================================================== */
+
+.card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: var(--space-6);
+  overflow: hidden;
+  background-color: var(--color-blue-100);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* ---------- Ícone ---------- */
+
+.iconeArea {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  background-color: rgba(255, 255, 255, 0.65);
+  border-radius: 50%;
+}
+
+/* Carta rotacionada a 60°, conforme especificação. */
+.icone {
+  color: var(--color-blue-900);
+  font-size: var(--font-size-3xl);
+  line-height: 1;
+  transform: rotate(60deg);
+}
+
+/* ---------- Conteúdo ---------- */
+
+.conteudo {
+  flex: 1;
+  min-width: 0;
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.titulo {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+/* Setas do carrossel. */
+.setas {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.seta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-blue-900);
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.seta:hover {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+
+/* ---------- Carrossel ---------- */
+
+.lista {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.lista::-webkit-scrollbar {
+  display: none;
+}
+
+.item {
+  display: flex;
+  flex: 1 0 210px;
+  gap: var(--space-2);
+  align-items: flex-start;
+  min-width: 0;
+  padding: var(--space-3);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  scroll-snap-align: start;
+}
+
+.status {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.sucesso {
+  color: var(--color-success);
+}
+
+.erro {
+  color: var(--color-danger);
+}
+
+.andamento {
+  color: var(--color-warning);
+}
+
+.itemTexto {
+  min-width: 0;
+}
+
+.arquivo {
+  margin: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Estado vazio. */
+.vazio {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ---------- Mobile: ícone atrás do texto ---------- */
+
+@media (max-width: 1199px) {
+  /* Em cards estreitos, um item por vez — evita a "fatia" do próximo
+     item aparecendo cortada na borda do carrossel. */
+  .item {
+    flex: 1 0 100%;
+  }
+}
+
+@media (max-width: 767px) {
+  .card {
+    align-items: flex-start;
+    padding: var(--space-5);
+  }
+
+  /* Ícone fantasma no canto inferior direito, longe das setas. */
+  .iconeArea {
+    position: absolute;
+    top: auto;
+    right: var(--space-2);
+    bottom: var(--space-2);
+    width: auto;
+    height: auto;
+    background: none;
+    opacity: 0.18;
+  }
+
+  .icone {
+    font-size: 5rem;
+  }
+
+  .conteudo {
+    position: relative;
+  }
+}

@@ -1,6 +1,6 @@
 # Folha de Ponto — Frontend
 
-Interface web do sistema **Folha de Ponto**, da **Universidade do Distrito Federal Jorge Amaury Maia Nunes**.
+Interface web do sistema **Folha de Ponto**, da **Universidade do Distrito Federal Professor Jorge Amaury Maia Nunes**.
 
 O sistema apoia o processamento de folhas de ponto físicas assinadas: recebe PDFs digitalizados, extrai os dados por OCR no backend, cruza com planilhas de referência (cadastro de servidores e calendário acadêmico), organiza os arquivos por competência e apoia o envio por e-mail.
 
@@ -10,7 +10,7 @@ O sistema apoia o processamento de folhas de ponto físicas assinadas: recebe PD
 
 ## Status
 
-Projeto **em fase inicial**: template limpo, navegação com React Router, design tokens e o shell global (header com logo, NavBar e sino de notificações) já estilizados. As **páginas ainda não têm UI**.
+Projeto **em desenvolvimento**: navegação, design tokens, shell global, tela **Início** (calendário + cards) já estilizados. Os dados da Início vêm de `src/mocks/` até a API existir. As telas Servidor, Calendário e Emails ainda não têm UI.
 
 O backend também está em desenvolvimento e, no momento, não sobe (ver `Backend/Agent.md`). Ou seja: ainda **não existe contrato de API estável**.
 
@@ -84,6 +84,7 @@ FolhaDePonto/
     ├── main.jsx          # bootstrap + BrowserRouter
     ├── App.jsx           # mapa de rotas
     ├── styles/           # tokens.css + base.css
+    ├── utils/            # calendario.js (lógica de datas)
     ├── layouts/          # AppLayout
     ├── components/       # componentes (CSS Modules)
     └── pages/

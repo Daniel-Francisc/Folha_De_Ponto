@@ -1,0 +1,55 @@
+/* ==========================================================================
+   Grid da tela Início
+   Desktop: calendário ⅔ | Funcionários ⅓  /  Emails linha inteira
+   Tablet:  calendário inteiro  /  Funcionários ½ | Emails ½
+   Mobile:  coluna única
+   ========================================================================== */
+
+.grade {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-areas:
+    "calendario funcionarios"
+    "emails emails";
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+/* min-width: 0 impede que conteúdo interno (tabela) estoure a coluna. */
+.calendario {
+  grid-area: calendario;
+  min-width: 0;
+}
+
+.funcionarios {
+  grid-area: funcionarios;
+  min-width: 0;
+}
+
+.emails {
+  grid-area: emails;
+  min-width: 0;
+}
+
+/* ---------- Tablet ---------- */
+
+@media (max-width: 1199px) {
+  .grade {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "calendario calendario"
+      "funcionarios emails";
+  }
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 767px) {
+  .grade {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "calendario"
+      "funcionarios"
+      "emails";
+  }
+}
