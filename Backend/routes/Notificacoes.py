@@ -1,15 +1,13 @@
-"""Notificações recentes de processamento e envio.
-
-O painel do sino é transversal às telas; sua fonte futura deve ser o estado real
-dos envios. Este scaffold não cria notificações por conta própria.
-"""
+"""Consulta notificações locais criadas após tentativas reais de envio SMTP."""
 from fastapi import APIRouter
 
+from Backend.services.RepositorioLocal import RepositorioLocal
+
 router = APIRouter(prefix="/notificacoes", tags=["Notificações"])
+repositorio = RepositorioLocal()
 
 @router.get("", summary="Listar notificações recentes")
 def listar_notificacoes():
-    """TODO: ler estados recentes persistidos (`andamento`, `sucesso`, `erro`).
-    Retorna `[]` enquanto não há histórico de operações.
-    """
-    return []
+    """Lista estados operacionais reais, ordenados do mais recente ao antigo."""
+    notificacoes = repositorio.listar("notificacoes")
+    return sorted(notificacoes, key=lambda item: item.get("data", ""), reverse=True)[:50]

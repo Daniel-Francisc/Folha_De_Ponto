@@ -53,14 +53,12 @@ O backend deve manter as rotas como camada HTTP e delegar processamento para mó
 
 Prioridades principais:
 
-1. Confirmar e corrigir a inicialização da API e os imports.
-2. Implementar o fluxo de recepção de PDFs e OCR.
-3. Definir o formato dos dados extraídos, incluindo tratamento de incerteza e correções do usuário.
-4. Integrar os dados com as planilhas de referência e a organização dos documentos.
-5. Conectar o envio SMTP e retornar estados claros por arquivo/destinatário.
-6. Configurar CORS para a origem de desenvolvimento do Vite e respostas de erro consistentes.
+1. Conectar as telas do frontend às rotas de API e retirar os mocks em etapas.
+2. Definir, com a instituição, a origem de mensagens recebidas e sua configuração IMAP.
+3. Definir o conteúdo/anexos das rotinas automáticas antes de ativar o scheduler.
+4. Validar OCR e SMTP em ambiente local com Tesseract, idioma português e configuração institucional.
 
-**Não considere o fluxo ponta a ponta pronto:** a especificação do frontend registra que o backend ainda precisa de correções e que a rota de PDFs/OCR e a integração real permanecem pendentes. Verifique o código antes de afirmar o estado atual.
+**O fluxo ponta a ponta ainda não está pronto:** o backend possui OCR, persistência local e envio SMTP nominal, mas o frontend continua usando mocks. Rotinas não executam envios automáticos e mensagens recebidas ainda não são importadas por IMAP.
 
 ## 7. Regras de trabalho para agentes
 

@@ -1,14 +1,14 @@
-"""Rotas de notas/períodos destacados no calendário.
+"""Rotas persistentes para notas/períodos destacados no calendário."""
+from datetime import date, datetime, timezone
+from uuid import uuid4
 
-Os handlers são scaffolds: retornam vazio porque ainda não existe armazenamento.
-Ao implementar, persista as notas fora da memória do processo. Datas aceitam o
-formato ISO `YYYY-MM-DD`, igual ao contrato enviado pelo front-end.
-"""
-from datetime import date
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from Backend.services.RepositorioLocal import RepositorioLocal
+
 router = APIRouter(prefix="/notas", tags=["Notas do calendário"])
+repositorio = RepositorioLocal()
 
 class NotaEntrada(BaseModel):
     """Campos editáveis de uma nota. O ID é criado pelo backend ao persistir."""
@@ -19,22 +19,38 @@ class NotaEntrada(BaseModel):
 
 @router.get("", summary="Listar notas do calendário")
 def listar_notas(inicio: date | None = Query(default=None), fim: date | None = Query(default=None)):
-    """Listar notas sobrepostas ao intervalo. TODO: ler armazenamento e filtrar
-    `nota.inicio <= fim` e `nota.fim >= inicio`; devolver objetos com id/título/
-    início/fim/contexto. Retorno atual `[]`: nenhuma nota está persistida.
-    """
-    return []
+    """Lista notas persistidas, incluindo as que cruzam o intervalo consultado."""
+    notas = repositorio.listar("notas")
+    if inicio and fim and inicio > fim:
+        raise HTTPException(status_code=422, detail="inicio não pode ser posterior a fim.")
+    return [
+        nota for nota in notas
+        if (fim is None or date.fromisoformat(nota["inicio"]) <= fim)
+        and (inicio is None or date.fromisoformat(nota["fim"]) >= inicio)
+    ]
 
 @router.post("", summary="Criar nota do calendário")
 def criar_nota(dados: NotaEntrada):
-    """TODO: validar `inicio <= fim`, gerar ID e persistir; devolver registro
-    criado. Ainda não grava nada; `{}` é o retorno scaffold, não confirmação.
-    """
-    return {}
+    """Valida intervalo, grava a nota localmente e devolve o registro criado."""
+    if dados.inicio > dados.fim:
+        raise HTTPException(status_code=422, detail="inicio não pode ser posterior a fim.")
+    registro = {
+        "id": str(uuid4()), "titulo": dados.titulo.strip(),
+        "inicio": dados.inicio.isoformat(), "fim": dados.fim.isoformat(),
+        "contexto": dados.contexto, "criadoEm": datetime.now(timezone.utc).isoformat(),
+    }
+    return repositorio.adicionar("notas", registro)
 
 @router.put("/{nota_id}", summary="Atualizar nota do calendário")
 def atualizar_nota(nota_id: str, dados: NotaEntrada):
-    """TODO: localizar ID, validar e substituir a nota; responder 404 se ausente.
-    Retorno atual `{}` porque não há repositório de notas conectado.
-    """
-    return {}
+    """Atualiza uma nota existente e responde 404 para IDs desconhecidos."""
+    if dados.inicio > dados.fim:
+        raise HTTPException(status_code=422, detail="inicio não pode ser posterior a fim.")
+    registro = repositorio.atualizar("notas", nota_id, {
+        "titulo": dados.titulo.strip(), "inicio": dados.inicio.isoformat(),
+        "fim": dados.fim.isoformat(), "contexto": dados.contexto,
+        "atualizadoEm": datetime.now(timezone.utc).isoformat(),
+    })
+    if registro is None:
+        raise HTTPException(status_code=404, detail="Nota não encontrada.")
+    return registro

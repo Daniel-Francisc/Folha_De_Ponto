@@ -2,7 +2,7 @@
 
 Documento de apoio: lista **todos os pontos do frontend que vão receber dados do backend** e explica, de forma simples, como cada um é usado na tela.
 
-> Situação em 20/10/2026: existem rotas implementadas para saúde, servidores, importação de planilha e recepção de PDF. Também foram criadas rotas scaffold para os demais pontos: elas retornam `[]` ou `{}` e explicam no código o que falta. Ainda não há chamadas HTTP no frontend, e as telas continuam usando dados de exemplo em `Frontend/FolhaDePonto/src/mocks/`.
+> Situação revalidada em 21/10/2026: as rotas do backend estão implementadas e os dados operacionais são persistidos localmente em JSON. O frontend ainda não faz chamadas HTTP e as telas continuam usando dados de exemplo em `Frontend/FolhaDePonto/src/mocks/`.
 
 ---
 
@@ -51,38 +51,47 @@ Documento de apoio: lista **todos os pontos do frontend que vão receber dados d
 
 ## 3. Upload de folha de ponto (PDF)
 
-**Onde:** área central da tela Servidor.
+Onde: área central da tela Servidor.
 
-**Request:** `multipart/form-data` com um ou mais PDFs.
+Request: multipart/form-data com um ou mais PDFs enviados no campo repetido arquivos. Limite de 25 MB por PDF.
 
-**Resposta atual:** `{ "documentos": [...] }`. Os itens seguem o formato abaixo, mas o OCR ainda não foi implementado, então `campos` vem vazio e o status é `nao_escaneado`.
+Resposta: o backend executa Tesseract e devolve sugestões para revisão humana no envelope documentos. A identificação do OCR não é confirmação nem salva o arquivo automaticamente.
 
-```json
+Exemplo de item:
+
+~~~json
 {
   "id": "d1",
-  "nome": "Folha_2026-09_Maria_Silva.pdf",
-  "status": "corrigido",
-  "score": 0.97,
+  "nome": "folha_digitalizada.pdf",
+  "status": "baixo",
+  "score": 0.92,
   "competencia": "09/2026",
-  "servidorId": "s1",
+  "servidorId": "1234567",
+  "paginasLidas": 1,
+  "armazenado": false,
+  "caminho": null,
   "campos": {
     "servidor": "Maria Silva",
     "matricula": "1234567",
-    "email": "maria.silva@undf.edu.br",
+    "email": "",
     "competencia": "09/2026"
-  }
+  },
+  "mensagem": "Revise os campos extraídos antes de salvar a folha."
 }
-```
+~~~
 
-**Como o front usa**
+Como o front usa
 
-- `status` define a cor do documento no painel lateral: `corrigido` (azul), `ok` (ciano), `baixo` (amarelo, score < 0,95), `nao_escaneado` (neutro).
-- `score` aparece como etiqueta numérica ao lado do nome.
-- `campos` preenche a aba **Dados**, onde o usuário pode corrigir antes de seguir.
-- Enquanto não houver backend, o upload só adiciona o arquivo à lista local como "não escaneado".
+- status define a cor do documento: corrigido (azul), ok (ciano), baixo (amarelo), nao_escaneado (neutro).
+- score é a média das confianças de palavras do Tesseract no intervalo 0–1; não representa a probabilidade de o servidor ter sido identificado.
+- campos preenche a aba Dados para revisão e correção.
+- paginasLidas informa quantas páginas foram processadas.
+- armazenado e caminho mostram se o PDF foi gravado. O upload sem servidor e competência confirmados apenas processa e devolve os dados.
+- Status: nao_escaneado quando nenhum texto foi reconhecido; baixo quando a confiança está abaixo de 0,95 ou faltam matrícula/competência; ok quando os campos mínimos foram localizados e a confiança é pelo menos 0,95. corrigido fica reservado para revisão humana.
+
+O executável Tesseract e o idioma português por.traineddata são requisitos do sistema que hospeda a API. Configure TESSERACT_CMD se tesseract.exe não estiver no PATH e TESSERACT_LANG para selecionar o idioma.
 
 ---
-
 ## 4. Calendário acadêmico (importação de planilha)
 
 **Onde:** tela Calendário, ao soltar um `.xls/.xlsx` ou usar o botão flutuante.
@@ -103,7 +112,7 @@ Documento de apoio: lista **todos os pontos do frontend que vão receber dados d
 - Cada evento vira uma marca visual no dia correspondente (já existe o espaço reservado na célula).
 - ⚠️ Hoje a importação apenas registra o nome do arquivo; a renderização dos eventos ainda não foi implementada.
 
-O backend aceita `.xlsx` de até 10 MB e a primeira aba com uma coluna chamada `Data`; colunas reconhecidas para título: `Título`, `Evento`, `Descrição` ou `Feriado`; para tipo: `Tipo` ou `Categoria`. Arquivos `.xls` binários ainda não são suportados. Planilhas sem coluna `Data` são guardadas como referência de cadastro e não geram eventos. O `GET /servidores` lê arquivos importados cujos nomes indicam cadastro, se encontrar colunas `Matrícula`/`SIAPE` e `Nome`/`Servidor`.
+O backend aceita `.xlsx` e `.xls` de até 10 MB. Para `.xls`, `xlrd==2.0.2` lê o formato binário. A primeira aba precisa ter uma coluna `Data`; colunas reconhecidas para título: `Título`, `Evento`, `Descrição` ou `Feriado`; para tipo: `Tipo` ou `Categoria`. Planilhas sem coluna `Data` podem ser importadas como cadastro. O `GET /servidores` lê arquivos importados se encontrar colunas `Matrícula`/`SIAPE` e `Nome`/`Servidor`.
 
 ---
 
@@ -314,51 +323,39 @@ O backend aceita `.xlsx` de até 10 MB e a primeira aba com uma coluna chamada `
 |---|---|---|
 | `GET /health` | — | `{ "status": "ok" }` |
 | `GET /servidores` | — | Lista `[{id, matricula, nome, email}]` ou `[]` |
-| `POST /calendario` | Multipart `arquivo` (`.xlsx`, até 10 MB) e `categoria` (`calendario` ou `servidores`) | `{ "eventos": [...], "categoria": "...", "arquivo": "..." }`; grava em `Excel/Calendario_Academico` ou `Excel/Lista_de_Servidores` |
-| `POST /folhas` | Multipart `arquivos` repetido (PDF, até 25 MB cada); para armazenar, enviar `servidor_id`, `servidor_nome`, `competencia` (`AAAA-MM`) e opcionalmente `substituir=true` | `{ "documentos": [...] }`; sem metadados confirmados não salva, com metadados grava em `PDFs/{id}_{nome}/{AAAA-MM}/` |
-| `GET /processamentos/{id}` | ID do lote | `{}` scaffold; lote ainda não é persistido |
-| `GET /notas?inicio=&fim=` | datas ISO opcionais | `[]` scaffold |
-| `POST /notas` | título, início, fim, contexto | `{}` scaffold |
-| `PUT /notas/{id}` | dados completos da nota | `{}` scaffold |
-| `GET /marcacoes?inicio=&fim=` | datas ISO opcionais | `[]` scaffold |
-| `PUT /marcacoes` | lista de início/fim/tipo | `[]` scaffold |
-| `GET /emails/pendentes` | — | `[]` scaffold |
-| `POST /emails/enviar` | servidor, destinatário, assunto, mensagem e IDs de arquivos | `{}` scaffold; não chama SMTP |
-| `GET /rotinas` | — | `[]` scaffold |
-| `POST /rotinas` | data, destinatários, descrição | `{}` scaffold |
-| `PUT /rotinas/{id}` | dados da rotina | `{}` scaffold |
-| `GET /recebidos` | — | `[]` scaffold; não acessa caixa de e-mail |
-| `PATCH /recebidos/{id}` | status `pendente`, `concluida` ou `negada` | `{}` scaffold |
-| `GET /historico?tipo=&pagina=&porPagina=` | filtro e paginação | `[]` scaffold |
-| `GET /inicio` | — | `{}` scaffold |
-| `GET /notificacoes` | — | `[]` scaffold |
+| `GET /calendario` | — | `{ "eventos": [...] }` lidos das planilhas de calendário |
+| `POST /calendario` | Multipart `arquivo` (`.xls`/`.xlsx`, até 10 MB) e `categoria` (`calendario` ou `servidores`) | `{ "eventos": [...], "categoria": "...", "arquivo": "..." }`; grava em `Excel/Calendario_Academico` ou `Excel/Lista_de_Servidores` |
+| POST /folhas | Multipart arquivos repetido (PDF, até 25 MB cada); opcionalmente recebe servidor_id, servidor_nome, competencia (AAAA-MM) e substituir=true | Executa OCR Tesseract, devolve `processamentoId` e documentos; grava PDFs somente após receber metadados confirmados |
+| `GET /processamentos/{id}` | ID do lote | Resultado persistido do OCR ou 404 |
+| `GET /notas?inicio=&fim=` | datas ISO opcionais | Notas persistidas que cruzam o período |
+| `POST /notas` | título, início, fim, contexto | Nota criada com ID |
+| `PUT /notas/{id}` | dados completos da nota | Nota atualizada ou 404 |
+| `GET /marcacoes?inicio=&fim=` | datas ISO opcionais | Lista `{dia, tipos}` |
+| `PUT /marcacoes` | lista de início/fim/tipo | Dias expandidos e persistidos; operação aditiva |
+| `GET /emails/pendentes` | — | PDFs confirmados ainda não enviados |
+| `POST /emails/enviar` | servidor, destinatário(s), assunto, mensagem e IDs/objetos de arquivos | Envio SMTP e registro do resultado |
+| `GET /rotinas` | — | Agendamentos locais persistidos |
+| `POST /rotinas` | data, destinatários, descrição | Rotina validada em `aguardando_configuracao` |
+| `PUT /rotinas/{id}` | dados da rotina | Rotina atualizada ou 404 |
+| `GET /recebidos` | — | Mensagens já importadas; não acessa IMAP |
+| `PATCH /recebidos/{id}` | status `pendente`, `concluida` ou `negada` | Estado atualizado ou 404 |
+| `GET /historico?tipo=&pagina=&porPagina=` | filtro e paginação | Registros reais de tentativas/envios |
+| `GET /inicio` | — | Indicadores calculados de dados persistidos |
+| `GET /notificacoes` | — | Estados recentes de envio |
 
-O backend habilita CORS para `localhost:5173` e `127.0.0.1:5173`. A classe `Backend/services/ArmazenamentoArquivos.py` grava referências e PDFs em `Backend/arquivos/recebidos` (ou em `FOLHA_STORAGE_DIR`). Rotas scaffold constam no OpenAPI, mas não têm persistência nem efeito colateral e não devem ser interpretadas como sucesso. PDFs só são armazenados depois que servidor e competência forem informados; o OCR ainda não fornece esses metadados automaticamente. Cada área scaffold tem seu próprio arquivo em `Backend/routes/` — por exemplo, `Emails.py`, `Rotinas.py` e `CalendarioNotas.py`. Consulte a docstring da rota para instruções de continuação.
+O backend habilita CORS para `localhost:5173` e `127.0.0.1:5173`. A classe `Backend/services/ArmazenamentoArquivos.py` grava referências e PDFs em `Backend/arquivos/recebidos` (ou em `FOLHA_STORAGE_DIR`); `Backend/services/RepositorioLocal.py` persiste os metadados na subpasta `Dados`. PDFs só são armazenados depois que servidor e competência forem informados. O OCR retorna sugestões; os metadados confirmados são necessários para salvar.
 
 Ao substituir um PDF existente com `substituir=true`, o anterior permanece na mesma pasta com nome `{nome}-{AAAA-MM}_OLD_[AAAAMMDD-HHMMSS].pdf`. Sem a flag, a API retorna conflito e mantém o original.
 
-## Instalação do PaddleOCR
+## OCR Tesseract
 
-O ambiente Python local não foi alterado. As dependências `paddlepaddle==3.3.1` e `PaddleOCR==3.7.0` foram adicionadas a `Backend/requirements.txt`. No terminal, a partir da pasta `Backend`, execute:
+Backend/requirements.txt registra pytesseract, PyMuPDF e Pillow. O executável Tesseract OCR e o modelo de idioma por.traineddata são pré-requisitos externos ao pip. Se tesseract.exe não estiver no PATH do processo da API, configure TESSERACT_CMD; o idioma pode ser trocado por TESSERACT_LANG.
 
-```powershell
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
-Se preferir chamar o Python do venv explicitamente no Windows:
-
-```powershell
-.venv\Scripts\python.exe -m pip install --upgrade pip
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-Depois da instalação, esses pacotes ainda precisam ser conectados a um serviço OCR; a rota de PDF não os invoca automaticamente.
-
+Backend/services/TesseractOCR.py converte cada página do PDF em imagem e extrai texto/confiança. Backend/services/ProcessadorFolhas.py reconhece rótulos de servidor, matrícula, e-mail e competência. POST /folhas persiste cada lote para consulta em GET /processamentos/{id}; o processamento OCR é síncrono.
 - **Datas**: enviar em ISO 8601 (`2026-10-19`, `2026-10-19T14:32:00`). O front converte para o formato brasileiro na exibição.
 - **Status**: usar exatamente os valores dos enums acima (minúsculos, sem acento).
 - **Erros**: responder com status HTTP correto e corpo `{ "detail": "mensagem" }`, para o front exibir a mensagem.
-- **CORS**: liberar a origem do Vite (hoje não há `CORSMiddleware` no backend).
+- **CORS**: o backend libera `localhost:5173` e `127.0.0.1:5173` para o Vite.
 - **Uploads**: PDFs digitalizados podem ser grandes; definir limite e devolver erro claro ao exceder.
 - **Sem autenticação** nesta fase.
 

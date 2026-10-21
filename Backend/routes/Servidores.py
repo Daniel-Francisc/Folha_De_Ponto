@@ -20,48 +20,55 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
 
 def _servidores_da_planilha(caminho: Path):
-    """Lê a primeira aba e encontra matrícula, nome e e-mail por cabeçalho.
-
-    A função retorna lista vazia quando a planilha está malformada ou não tem
-    colunas de identificação. Ela não envia a exceção técnica ao navegador;
-    para diagnóstico institucional, considere adicionar logging sem registrar
-    dados pessoais desnecessários.
-    """
+    """Lê cadastro XLS/XLSX e mapeia matrícula, nome e e-mail por cabeçalho."""
     try:
-        with ZipFile(caminho) as arquivo:
-            workbook = ElementTree.fromstring(arquivo.read("xl/workbook.xml"))
-            rels = ElementTree.fromstring(arquivo.read("xl/_rels/workbook.xml.rels"))
-            rel_map = {item.attrib["Id"]: item.attrib["Target"] for item in rels}
-            sheet_ref = workbook.find("m:sheets/m:sheet", NS)
-            if sheet_ref is None:
-                return []
-            rid = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
-            target = rel_map[sheet_ref.attrib[rid]].lstrip("/")
-            sheet_path = target if target.startswith("xl/") else f"xl/{target}"
-            sheet = ElementTree.fromstring(arquivo.read(sheet_path))
-            shared = []
-            if "xl/sharedStrings.xml" in arquivo.namelist():
-                root = ElementTree.fromstring(arquivo.read("xl/sharedStrings.xml"))
-                shared = ["".join(t.text or "" for t in si.findall(".//m:t", NS)) for si in root.findall("m:si", NS)]
+        if caminho.suffix.casefold() == ".xls":
+            import xlrd
+
+            planilha = xlrd.open_workbook(filename=str(caminho)).sheet_by_index(0)
             rows = []
-            for row in sheet.findall(".//m:sheetData/m:row", NS):
-                values = []
-                for cell in row.findall("m:c", NS):
-                    # Respeita a referência de coluna para preservar células vazias.
-                    col_ref = re.match(r"[A-Z]+", cell.attrib.get("r", "A"))
-                    col_index = 0
-                    for char in col_ref.group(0) if col_ref else "A":
-                        col_index = col_index * 26 + ord(char) - ord("A") + 1
-                    while len(values) < col_index:
-                        values.append("")
-                    # Textos do Excel podem estar em sharedStrings ou inlineStr.
-                    value = cell.findtext("m:v", default="", namespaces=NS)
-                    if cell.attrib.get("t") == "s" and value:
-                        value = shared[int(value)]
-                    elif cell.attrib.get("t") == "inlineStr":
-                        value = "".join(t.text or "" for t in cell.findall(".//m:t", NS))
-                    values[col_index - 1] = value.strip()
-                rows.append(values)
+            for numero_linha in range(planilha.nrows):
+                linha = []
+                for celula in planilha.row(numero_linha):
+                    valor = celula.value
+                    if isinstance(valor, float) and valor.is_integer():
+                        valor = int(valor)
+                    linha.append(str(valor).strip() if valor is not None else "")
+                rows.append(linha)
+        else:
+            with ZipFile(caminho) as arquivo:
+                workbook = ElementTree.fromstring(arquivo.read("xl/workbook.xml"))
+                rels = ElementTree.fromstring(arquivo.read("xl/_rels/workbook.xml.rels"))
+                rel_map = {item.attrib["Id"]: item.attrib["Target"] for item in rels}
+                sheet_ref = workbook.find("m:sheets/m:sheet", NS)
+                if sheet_ref is None:
+                    return []
+                rid = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+                target = rel_map[sheet_ref.attrib[rid]].lstrip("/")
+                sheet_path = target if target.startswith("xl/") else f"xl/{target}"
+                sheet = ElementTree.fromstring(arquivo.read(sheet_path))
+                shared = []
+                if "xl/sharedStrings.xml" in arquivo.namelist():
+                    root = ElementTree.fromstring(arquivo.read("xl/sharedStrings.xml"))
+                    shared = ["".join(t.text or "" for t in si.findall(".//m:t", NS)) for si in root.findall("m:si", NS)]
+                rows = []
+                for row in sheet.findall(".//m:sheetData/m:row", NS):
+                    values = []
+                    for cell in row.findall("m:c", NS):
+                        # Respeita a referência de coluna para preservar células vazias.
+                        col_ref = re.match(r"[A-Z]+", cell.attrib.get("r", "A"))
+                        col_index = 0
+                        for char in col_ref.group(0) if col_ref else "A":
+                            col_index = col_index * 26 + ord(char) - ord("A") + 1
+                        while len(values) < col_index:
+                            values.append("")
+                        value = cell.findtext("m:v", default="", namespaces=NS)
+                        if cell.attrib.get("t") == "s" and value:
+                            value = shared[int(value)]
+                        elif cell.attrib.get("t") == "inlineStr":
+                            value = "".join(t.text or "" for t in cell.findall(".//m:t", NS))
+                        values[col_index - 1] = value.strip()
+                    rows.append(values)
         if not rows:
             return []
         headers = [value.strip().casefold() for value in rows[0]]
@@ -82,7 +89,7 @@ def _servidores_da_planilha(caminho: Path):
             email = row[email_i] if email_i is not None and email_i < len(row) else ""
             servidores.append({"id": row[matricula_i], "matricula": row[matricula_i], "nome": row[nome_i], "email": email})
         return servidores
-    except (BadZipFile, KeyError, ElementTree.ParseError, ValueError, IndexError):
+    except (BadZipFile, KeyError, ElementTree.ParseError, ValueError, IndexError, ImportError):
         return []
 
 @router.get("")
@@ -90,15 +97,17 @@ def listar_servidores():
     """Lista servidores disponíveis para busca e preenchimento dos formulários.
 
     O resultado é uma lista JSON direta, conforme o contrato de mocks do front.
-    Arquivos com o mesmo ID são deduplicados, usando a planilha mais recente na
-    iteração. TODO: definir atualização/substituição de cadastro e ordenação.
+    Arquivos com o mesmo ID são deduplicados; a planilha modificada mais
+    recentemente prevalece. A lista é ordenada pelo nome para manter a resposta
+    estável entre chamadas.
     """
     if not STORAGE.is_dir():
         return []
     servidores = {}
-    for caminho in STORAGE.glob("*.xlsx"):
+    arquivos = [*STORAGE.glob("*.xlsx"), *STORAGE.glob("*.xls")]
+    for caminho in sorted(arquivos, key=lambda item: item.stat().st_mtime):
         for servidor in _servidores_da_planilha(caminho):
             servidores[servidor["id"]] = servidor
-    return list(servidores.values())
+    return sorted(servidores.values(), key=lambda item: item["nome"].casefold())
 
 

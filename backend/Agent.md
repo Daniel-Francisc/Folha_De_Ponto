@@ -1,118 +1,112 @@
 # Agent — Backend do Folha de Ponto
 
-> Este arquivo complementa o contexto geral em [../Agent.md](../Agent.md). Leia o arquivo da raiz primeiro para entender o objetivo e o fluxo completo do sistema.
+> Leia primeiro o contexto geral em [../Agent.md](../Agent.md). Este arquivo descreve as responsabilidades, os padrões de implementação e o estado observado do backend. **Confira o código antes de assumir que uma rota ou integração continua igual.**
 
-## Responsabilidade
+## Objetivo e responsabilidade
 
-O backend é responsável por receber arquivos e dados do frontend, validar as entradas, executar a extração e o processamento, organizar os resultados e encaminhar e-mails. A API está sendo desenvolvida com **FastAPI/Python**.
+O backend, construído com FastAPI, fornece ao frontend HTTP para importar planilhas, receber e processar folhas de ponto em PDF, consultar e organizar dados locais e enviar e-mails. Ele também valida entradas e traduz falhas de serviços para respostas HTTP compreensíveis.
 
-## Rotas e responsabilidades
+Mantenha os handlers focados no protocolo HTTP: validar e interpretar a entrada, chamar serviços e montar a resposta. OCR, SMTP, persistência e manipulação de arquivos pertencem a módulos especializados em `services/` ou a extratores próprios.
 
-As rotas são a camada HTTP de entrada: devem receber os dados, validar o formato e delegar o trabalho para funções/classes responsáveis pelo processamento. Evite concentrar OCR, manipulação de planilhas, organização de arquivos e SMTP diretamente nos handlers.
+## Estrutura atual
 
-### Importação de planilhas Excel
+- `Main.py`: cria a aplicação FastAPI, configura CORS, registra os routers e expõe `GET /health`.
+- `routes/`: um arquivo por área/rota, com entrada, validação HTTP e resposta daquela área.
+- `services/`: armazenamento de arquivos, repositório JSON local, OCR e envio SMTP.
+- `model/`: modelos compartilhados, quando necessário.
+- `arquivos/recebidos/`: armazenamento local padrão de arquivos e dados; pode ser substituído por `FOLHA_STORAGE_DIR`.
+- `Agent.md`: estas instruções.
 
-- Receber arquivos .xls/.xlsx destinados às planilhas de referência, como cadastro de servidores e calendário acadêmico.
-- Verificar a extensão/formato permitido e tratar erros de leitura.
-- Encaminhar o conteúdo ao extrator de Excel (há trabalho anterior usando UploadFile, BytesIO e pandas.read_excel).
-- Converter os dados extraídos para estruturas utilizáveis pela aplicação, como dicionários/listas e JSON quando necessário.
-- Não confundir essa importação de planilhas de referência com o fluxo de folhas de ponto: **as folhas de ponto devem aceitar apenas PDF**.
+Não mova rotas para um único arquivo agregador. O padrão estabelecido é manter cada área de API em seu próprio arquivo dentro de `routes/`, como `routes/Emails.py` e `routes/Marcacoes.py`, e registrar cada router em `Main.py`.
 
-### Recepção de folhas de ponto
+## Contratos das rotas existentes
 
-- Receber um ou mais PDFs.
-- Rejeitar arquivos que não sejam PDFs e retornar erros claros ao frontend.
-- Encaminhar os documentos para o pipeline de processamento; a validação real deve considerar o conteúdo do arquivo, não apenas o nome.
+Os prefixos completos estão definidos no `prefix` de cada router em `Main.py`. A lista abaixo corresponde aos prefixos registrados atualmente; confirme-os no código antes de alterar ou documentar contratos.
 
-### OCR e integração do fluxo
+| Método e caminho | Arquivo | Responsabilidade e contrato observado |
+|---|---|---|
+| `GET /health` | `Main.py` | Retorna o estado simples da API. |
+| `GET /servidores` | `routes/Servidores.py` | Lista servidores lidos da planilha de referência em `Excel/Lista_de_Servidores/`. |
+| `GET /calendario` | `routes/Excel.py` | Lista eventos acadêmicos extraídos das planilhas importadas. |
+| `POST /calendario` | `routes/Excel.py` | Recebe multipart com `arquivo` (`.xls`/`.xlsx`) e `categoria` (`calendario` ou `servidores`); planilha limitada a 10 MB. Retorna eventos, categoria e nome do arquivo. |
+| `POST /folhas` | `routes/Arquivo.py` | Recebe um ou mais PDFs no campo multipart repetido `arquivos`; limite de 25 MB por arquivo. Executa OCR e devolve campos sugeridos. Só persiste o PDF quando também são enviados `servidor_id`, `servidor_nome` e `competencia` (`AAAA-MM`); `substituir` autoriza substituir uma versão existente. |
+| `GET /processamentos/{processamento_id}` | `routes/Processamentos.py` | Consulta um lote de PDFs já processado; retorna `404` se não existir. |
+| `GET /notas` | `routes/CalendarioNotas.py` | Lista notas; aceita filtros de data `inicio` e `fim`. |
+| `POST /notas` | `routes/CalendarioNotas.py` | Cria uma nota do calendário. |
+| `PUT /notas/{nota_id}` | `routes/CalendarioNotas.py` | Substitui os dados de uma nota existente; retorna `404` se não existir. |
+| `GET /marcacoes` | `routes/Marcacoes.py` | Lista marcações, opcionalmente filtradas por `inicio` e `fim`. |
+| `PUT /marcacoes` | `routes/Marcacoes.py` | Adiciona/combina os intervalos recebidos com as marcações existentes. **Não apaga marcações**; não interpretar `[]` como limpeza. Ainda não existe rota de remoção. |
+| `GET /emails/pendentes` | `routes/Emails.py` | Lista documentos persistidos elegíveis para envio. |
+| `POST /emails/enviar` | `routes/Emails.py` | Envia e-mail nominal com documentos persistidos. Registra sucesso/falha no histórico; exige configuração SMTP e pode retornar `502` em falha de envio. |
+| `GET /rotinas` | `routes/Rotinas.py` | Lista e-mails de rotina persistidos. |
+| `POST /rotinas` | `routes/Rotinas.py` | Valida e registra rotina futura; status atual `aguardando_configuracao`. |
+| `PUT /rotinas/{rotina_id}` | `routes/Rotinas.py` | Atualiza rotina existente; retorna `404` se não existir. |
+| `GET /recebidos` | `routes/Recebidos.py` | Lista mensagens recebidas que já estejam registradas localmente. Não consulta IMAP atualmente. |
+| `PATCH /recebidos/{recebido_id}` | `routes/Recebidos.py` | Atualiza o status de uma mensagem registrada; retorna `404` se não existir. |
+| `GET /historico` | `routes/Historico.py` | Lista histórico; aceita `tipo` (`nominal` ou `automatico`), `pagina` e `porPagina` (5–50). |
+| `GET /inicio` | `routes/Inicio.py` | Retorna indicadores e envios recentes para a tela inicial. |
+| `GET /notificacoes` | `routes/Notificacoes.py` | Lista até 50 notificações recentes de tentativas de envio. |
 
-- O OCR é o principal foco de desenvolvimento atual.
-- Extrair das folhas os campos necessários para identificar competência (mês/ano) e servidor.
-- Integrar a saída do OCR com os dados de referência importados, a organização dos arquivos e o envio de e-mail.
-- Tratar casos de baixa confiança, campos ausentes e documentos que não possam ser identificados, sem inventar dados nem salvar silenciosamente resultados incorretos.
+Para exemplos detalhados dos payloads usados pela interface, consulte [../Integracao_Backend.md](../Integracao_Backend.md) e compare-os com os modelos e handlers atuais. Ao mudar qualquer contrato, atualize a documentação de integração na mesma alteração.
 
-### Envio de e-mail
+## Arquivos, persistência e convenções
 
-- Utilizar SMTP por meio da configuração do ambiente (o desenvolvimento já considerou o servidor local Mercury SMTP).
-- Manter o envio desacoplado das rotas para facilitar testes e tratamento de falhas.
-- Não codificar host, credenciais ou outros segredos diretamente no código.
+- Serviço de arquivos: `services/ArmazenamentoArquivos.py`.
+- Raiz padrão: `Backend/arquivos/recebidos`; a variável `FOLHA_STORAGE_DIR` permite apontar outra raiz.
+- Planilhas ficam organizadas sob `Excel/Calendario_Academico/` e `Excel/Lista_de_Servidores/`.
+- PDFs confirmados ficam em pastas por servidor e competência, sob `PDFs/`; o nome final segue `Nome_do_servidor-AAAA-MM.pdf`.
+- Substituição autorizada arquiva a versão anterior usando o sufixo `_OLD_[AAAAMMDD-HHMMSS]` antes de gravar a nova versão.
+- Notas, marcações, processamentos, documentos, rotinas, histórico e notificações usam JSON em `Dados/`, por meio de `services/RepositorioLocal.py`.
+- A persistência JSON é para uso local em uma instância. Não a trate como segura para vários processos concorrentes ou implantação distribuída.
+- Valide caminhos e nomes fornecidos pelo usuário para impedir traversal e nomes de arquivo inválidos. Nunca confie apenas na extensão: valide conteúdo e limites.
 
-## Mapa real de rotas (20/10/2026)
+## OCR e dependências do sistema
 
-- `GET /health` — verificação simples de disponibilidade.
-- `GET /servidores` — lista `[{id, matricula, nome, email}]` lida de planilhas em `Excel/Lista_de_Servidores`.
-- `POST /calendario` — multipart `arquivo` e `categoria` (`calendario` ou `servidores`); `.xlsx` até 10 MB; retorna `{eventos, categoria, arquivo}` e grava via `ArmazenamentoArquivos`. `.xls` binário ainda não é processado.
-- `POST /folhas` — multipart repetido `arquivos`; PDF até 25 MB. Para salvar em pasta final, também exige `servidor_id`, `servidor_nome`, `competencia` (`AAAA-MM`) e, opcionalmente, `substituir=true`. Sem metadados confirmados, valida mas não salva, pois OCR ainda não está ligado.
+O OCR atual usa Tesseract, não PaddleOCR/PaddlePaddle:
 
-### Armazenamento de arquivos
+- `services/TesseractOCR.py`: integração com Tesseract e leitura/renderização das páginas PDF.
+- `services/ProcessadorFolhas.py`: interpretação do texto e construção de campos sugeridos para a API.
+- Dependências Python do projeto ficam declaradas em `requirements.txt`. O executável Tesseract e os dados de idioma são dependências externas do sistema, não instaladas por este código.
+- O idioma padrão configurado é português (`por`). Se o executável não estiver no `PATH`, a configuração pode usar `TESSERACT_CMD`; `TESSERACT_LANG` altera o idioma.
+- Falta de binário, idioma ou dependência deve resultar em erro claro (atualmente a rota de folhas trata indisponibilidade como `503`), sem indicar falsamente que o OCR foi bem-sucedido.
 
-- Serviço: `Backend/services/ArmazenamentoArquivos.py`.
-- Raiz padrão: `Backend/arquivos/recebidos`; substituir com `FOLHA_STORAGE_DIR`.
-- Excel: `Excel/Calendario_Academico/` e `Excel/Lista_de_Servidores/`.
-- PDF: `PDFs/{id}_{nome}/{AAAA-MM}/{nome}-{AAAA-MM}.pdf`.
-- Duplicata PDF não sobrescreve por padrão. Com autorização explícita, versão antiga vira `{nome}-{AAAA-MM}_OLD_[AAAAMMDD-HHMMSS].pdf`.
-- A classe não identifica servidor/competência por OCR; quem a chamar deve fornecer metadados confirmados.
+**Não altere, ative, recrie ou instale pacotes no Python, pip ou `.venv` sem solicitação explícita.** Não execute instalação de dependências durante tarefas de código. Se uma dependência mudar, edite apenas `requirements.txt` e informe ao usuário o comando a executar no ambiente dele.
 
-### Instalação opcional de OCR
+## Integrações e limitações atuais
 
-O `requirements.txt` inclui `paddlepaddle==3.3.1` e `PaddleOCR==3.7.0`. No PowerShell, entre em `Backend` e rode estes comandos usando o ambiente Python já configurado:
+- CORS permite as origens locais `http://localhost:5173` e `http://127.0.0.1:5173`; confirme `Main.py` antes de alterar.
+- O frontend ainda possui telas/mocks sem integração HTTP completa. Não documente uma tela como conectada até confirmar chamadas reais no código do frontend.
+- O envio nominal usa SMTP. A configuração vem do ambiente (`SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` ou `SMTP_USER`; quando aplicável `SMTP_STARTTLS`, `SMTP_USER` e `SMTP_PASSWORD`). Nunca grave credenciais no código, frontend, logs ou Git.
+- Rotinas são validadas e persistidas como `aguardando_configuracao`; não há envio automático funcional até definir e implementar seleção de folhas, assunto, mensagem, anexos e execução do scheduler.
+- Mensagens recebidas não são importadas por IMAP. `GET /recebidos` só retorna registros locais existentes; não há fluxo de ingestão de e-mail recebido implementado.
+- `PUT /marcacoes` é aditivo. Antes de implementar remoção/substituição, defina explicitamente o contrato e atualize frontend e backend.
 
-```powershell
-.venv\Scripts\python.exe -m pip install --upgrade pip
-.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
+## Padrão obrigatório de documentação e implementação
 
-Se o ambiente já estiver ativado, use `python -m pip install -r requirements.txt`. Instalar os pacotes não conecta OCR sozinho: a classe/serviço de OCR ainda precisa ser implementada e chamada pela rota.
+O código deve ser acessível a quem não tem Python como linguagem principal:
 
-### Rotas scaffold, um arquivo por área em `routes/`
+1. **Uma rota/área por arquivo** em `routes/`, conforme o padrão atual. Não junte endpoints de áreas distintas em um arquivo genérico.
+2. Escreva docstrings em português claro para routers, funções de endpoint, serviços e modelos não óbvios. Explique o propósito, os argumentos, o retorno, efeitos colaterais e exceções relevantes.
+3. Adicione comentários inline somente para explicar decisões ou trechos que não sejam óbvios; prefira explicar o motivo e o contrato, não repetir o código.
+4. Para cada endpoint, documente método/caminho, formato de entrada (JSON, query ou multipart), campos obrigatórios/opcionais, resposta de sucesso, efeitos de persistência e códigos de erro esperados. Use `summary`/descrições FastAPI para refletir esse contrato em `/docs`.
+5. Use nomes explícitos em português alinhados ao vocabulário do projeto e tipos claros. Não esconda conversões de datas, nomes de arquivos ou statuses.
+6. Rotas devem validar a entrada, delegar processamento e transformar falhas conhecidas em `HTTPException` com mensagem útil. Não retornar sucesso se a gravação ou operação externa falhou.
+7. Preserve o contrato da API consumido pelo frontend. Se precisar alterá-lo, atualize o modelo, o endpoint e `Integracao_Backend.md` juntos e explique a migração.
+8. Separe erros de formato, leitura da planilha, OCR, persistência e SMTP. Não engula exceções nem exponha stack traces, caminhos locais, credenciais ou conteúdo pessoal ao cliente.
+9. Ao criar uma rota ainda sem implementação de negócio, faça um arquivo próprio para a área, devolva apenas uma resposta vazia/sem registros no formato definido e deixe instruções claras para a próxima pessoa implementar. Não simule sucesso de uma operação que não aconteceu.
+10. Ao concluir mudanças, relate arquivos alterados e verificações realizadas. Não instale dependências nem rode comandos de ambiente sem autorização explícita.
 
-Essas rotas já existem no OpenAPI e têm modelos de entrada para orientar o front. Elas não persistem nem enviam dados: GET de coleção retorna `[]`, GET de objeto/operações de gravação retornam `{}`. Leia a docstring da função antes de implementar. Cada família de endpoints tem seu próprio módulo: `CalendarioNotas.py`, `Marcacoes.py`, `Emails.py`, `Rotinas.py`, `Recebidos.py`, `Historico.py`, `Inicio.py`, `Notificacoes.py` e `Processamentos.py`. Não trate retorno vazio como sucesso persistido.
+## Como executar e verificar manualmente
 
-| Método e rota | Entrada esperada | Retorno scaffold | Próximo trabalho |
-|---|---|---|---|
-| `GET /notas?inicio=&fim=` | datas opcionais | `[]` | ler notas e filtrar por sobreposição |
-| `POST /notas` | `titulo`, `inicio`, `fim`, `contexto` | `{}` | validar intervalo, gerar ID, persistir |
-| `PUT /notas/{nota_id}` | mesmo corpo do POST | `{}` | atualizar ou 404 |
-| `GET /marcacoes?inicio=&fim=` | datas opcionais | `[]` | ler marcações do período |
-| `PUT /marcacoes` | lista de intervalos e tipo | `[]` | expandir intervalos e persistir |
-| `GET /emails/pendentes` | — | `[]` | listar folhas elegíveis ainda não enviadas |
-| `POST /emails/enviar` | `servidorId`, `destinatario`, `assunto`, `mensagem`, `arquivos` | `{}` | validar anexos persistidos, chamar SMTP, registrar resultado |
-| `GET /rotinas` | — | `[]` | ler agendamentos |
-| `POST /rotinas` | `data`, `destinatarios`, `descricao` | `{}` | validar data, persistir e integrar scheduler |
-| `PUT /rotinas/{rotina_id}` | mesmo corpo do POST | `{}` | atualizar rotina e scheduler ou 404 |
-| `GET /recebidos` | — | `[]` | conectar à caixa institucional com decisão aprovada |
-| `PATCH /recebidos/{recebido_id}` | `status`: `pendente`, `concluida` ou `negada` | `{}` | persistir alteração ou 404 |
-| `GET /historico?tipo=&pagina=&porPagina=` | filtro e paginação | `[]` | consultar histórico persistido |
-| `GET /inicio` | — | `{}` | calcular indicadores sem inventar valores |
-| `GET /notificacoes` | — | `[]` | listar estados recentes de envio |
-| `GET /processamentos/{processamento_id}` | ID do lote | `{}` | criar persistência e devolver estado do OCR |
+- Inicialização de desenvolvimento documentada: `uvicorn Backend.Main:app --reload`, a partir da raiz do repositório e com o ambiente já configurado pelo usuário.
+- Documentação HTTP interativa: `/docs`.
+- Disponibilidade: `GET /health`.
+- Não execute testes, comandos Python ou instalação de pacotes sem solicitação do usuário. Se o usuário pedir verificação, prefira inicialmente revisão estática e explique com precisão o que foi ou não executado.
 
-CORS libera `http://localhost:5173` e `http://127.0.0.1:5173`. As rotas scaffold não têm persistência nem chamam SMTP, IMAP ou scheduler. O front ainda precisa alinhar upload de folhas para ler `documentos` do envelope e usar os nomes dos campos multipart documentados.
+## Próximos itens conhecidos
 
-## Como continuar o código
-
-- Leia as docstrings do endpoint e do modelo de entrada no próprio arquivo; aparecem também em `/docs`.
-- Mantenha a rota responsável por HTTP e mova leitura/gravação, SMTP, OCR e parsing para `services/` ou extratores próprios.
-- Comece com armazenamento local institucional definido pelo projeto; não use variáveis globais para guardar estado de execução.
-- Só responda sucesso depois de concluir a gravação ou operação externa. Valide IDs e devolva `404` quando o registro não existir.
-- Use respostas com os mesmos campos dos exemplos em `Integracao_Backend.md`; datas ISO 8601 e statuses minúsculos sem acento.
-- Não inclua dados pessoais ou segredos em logs. Não adicione login, banco de nuvem ou serviços de terceiros nesta fase.
-
-## Foco de trabalho atual
-
-1. Implementar e testar a extração OCR dos PDFs.
-2. Definir um contrato consistente para os dados extraídos.
-3. Integrar OCR, cadastro/calendário de referência, organização dos PDFs e envio de e-mail.
-4. Melhorar validação, mensagens de erro e testes de cada etapa.
-
-## Diretrizes de implementação
-
-- Preferir rotas pequenas e específicas, com lógica de negócio em módulos de serviço/extratores.
-- Usar UploadFile para uploads FastAPI e fechar/liberar recursos adequadamente.
-- Tratar separadamente erros de arquivo inválido, falha de leitura, falha de OCR e falha de SMTP.
-- Evitar ler ou manter arquivos inteiros em memória sem necessidade; considerar volume e tamanho dos PDFs.
-- Manter caminhos de saída e nomes de arquivo seguros, removendo caracteres inadequados dos nomes.
-- Não adicionar banco de dados, autenticação ou armazenamento em nuvem sem alinhar a decisão ao escopo do projeto.
-- Ao alterar uma rota, explicar a responsabilidade dela, os dados de entrada/saída e como testar.
-
-
+1. Integrar as telas do frontend às rotas reais e substituir mocks gradualmente.
+2. Definir, com a instituição, a origem autorizada e a configuração de IMAP para mensagens recebidas.
+3. Definir contrato e regras de negócio para execução de rotinas automáticas.
+4. Validar OCR e SMTP em ambiente local configurado, sem alterar o ambiente Python do usuário.
+5. Projetar uma persistência adequada antes de suportar múltiplas instâncias concorrentes.

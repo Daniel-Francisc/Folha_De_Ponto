@@ -3,11 +3,14 @@
 Nenhuma caixa institucional é acessada. Antes de implementar, alinhar com a
 instituição o protocolo/caixa autorizada e proteger dados pessoais retornados.
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Literal
 
+from Backend.services.RepositorioLocal import RepositorioLocal
+
 router = APIRouter(prefix="/recebidos", tags=["E-mails recebidos"])
+repositorio = RepositorioLocal()
 
 class StatusRecebidoEntrada(BaseModel):
     """Status exibido pelo front-end para uma mensagem recebida."""
@@ -15,14 +18,17 @@ class StatusRecebidoEntrada(BaseModel):
 
 @router.get("", summary="Listar e-mails recebidos")
 def listar_recebidos():
-    """TODO: integrar fonte institucional aprovada, mapear mensagens e persistir
-    status. Não acessa e-mail agora; retorno atual `[]`.
+    """Lista mensagens importadas por um conector institucional autorizado.
+
+    Nenhuma caixa é consultada automaticamente. Até a configuração IMAP ser
+    definida, a lista persistida permanece vazia, sem dados fictícios.
     """
-    return []
+    return sorted(repositorio.listar("recebidos"), key=lambda item: item.get("data", ""), reverse=True)
 
 @router.patch("/{recebido_id}", summary="Alterar status de recebido")
 def atualizar_status_recebido(recebido_id: str, dados: StatusRecebidoEntrada):
-    """TODO: localizar e persistir status; devolver registro atualizado ou 404.
-    Não altera estado nesta versão; retorno atual `{}`.
-    """
-    return {}
+    """Persiste o estado de uma mensagem já importada; não cria mensagem fake."""
+    registro = repositorio.atualizar("recebidos", recebido_id, {"status": dados.status})
+    if registro is None:
+        raise HTTPException(status_code=404, detail="Mensagem recebida não encontrada.")
+    return registro

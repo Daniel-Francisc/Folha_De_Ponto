@@ -7,6 +7,12 @@ existente de um arquivo por grupo de rotas.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Carrega apenas o arquivo local de desenvolvimento, sem sobrescrever variáveis
+# já fornecidas pelo processo ou pelo ambiente de produção.
+load_dotenv(Path(__file__).resolve().with_name(".env.development"), override=False)
 
 from Backend.routes.Arquivo import router as router_arquivo
 from Backend.routes.CalendarioNotas import router as router_notas

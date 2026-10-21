@@ -2,12 +2,12 @@
 
 A planilha é gravada pela classe `ArmazenamentoArquivos` em uma das pastas:
 `Excel/Calendario_Academico` ou `Excel/Lista_de_Servidores`. O leitor de eventos
-usa apenas bibliotecas padrão e entende `.xlsx`; o formato binário `.xls` ainda
-é recusado com uma mensagem clara.
+usa a biblioteca padrão para `.xlsx` e `xlrd` para o formato binário `.xls`.
 """
 from datetime import date, datetime, timedelta
 from io import BytesIO
 import re
+from pathlib import Path
 from xml.etree import ElementTree
 from zipfile import BadZipFile, ZipFile
 
@@ -22,6 +22,78 @@ NAMESPACES = {
     "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
 }
 armazenamento = ArmazenamentoArquivos()
+
+
+def _ler_eventos_xls(conteudo: bytes) -> list[dict[str, str]]:
+    """Lê eventos do formato Excel binário usando a dependência opcional xlrd."""
+    try:
+        import xlrd
+    except ImportError as erro:
+        raise RuntimeError("O suporte a .xls exige xlrd; instale a dependência do requirements.") from erro
+    try:
+        livro = xlrd.open_workbook(file_contents=conteudo)
+        planilha = livro.sheet_by_index(0)
+    except Exception as erro:
+        raise ValueError("O arquivo XLS não pôde ser aberto.") from erro
+    linhas = [[str(planilha.cell_value(r, c)).strip() for c in range(planilha.ncols)] for r in range(planilha.nrows)]
+    if not linhas:
+        return []
+    cabecalhos = [valor.casefold() for valor in linhas[0]]
+    indice_data = next((i for i, nome in enumerate(cabecalhos) if nome in {"data", "dia", "date"}), None)
+    indice_titulo = next((i for i, nome in enumerate(cabecalhos) if nome in {"titulo", "título", "evento", "descrição", "descricao", "feriado"}), None)
+    indice_tipo = next((i for i, nome in enumerate(cabecalhos) if nome in {"tipo", "categoria"}), None)
+    if indice_data is None:
+        raise ValueError("A planilha de calendário precisa ter uma coluna Data.")
+    eventos = []
+    for numero_linha in range(1, planilha.nrows):
+        linha = linhas[numero_linha]
+        if indice_data >= len(linha) or not linha[indice_data]:
+            continue
+        celula = planilha.cell(numero_linha, indice_data)
+        if celula.ctype == xlrd.XL_CELL_DATE:
+            data_evento = xlrd.xldate_as_datetime(celula.value, livro.datemode).date()
+        else:
+            texto = linha[indice_data]
+            if texto.isdigit():
+                data_evento = date(1899, 12, 30) + timedelta(days=int(texto))
+            elif "/" in texto:
+                data_evento = datetime.strptime(texto, "%d/%m/%Y").date()
+            else:
+                data_evento = date.fromisoformat(texto)
+        eventos.append({
+            "data": data_evento.isoformat(),
+            "titulo": linha[indice_titulo] if indice_titulo is not None and indice_titulo < len(linha) and linha[indice_titulo] else "Evento acadêmico",
+            "tipo": linha[indice_tipo].casefold() if indice_tipo is not None and indice_tipo < len(linha) and linha[indice_tipo] else "evento",
+        })
+    return eventos
+
+
+def _ler_eventos_arquivo(caminho: Path) -> list[dict[str, str]]:
+    """Escolhe o leitor compatível com a extensão de uma referência salva."""
+    conteudo = caminho.read_bytes()
+    if caminho.suffix.casefold() == ".xls":
+        return _ler_eventos_xls(conteudo)
+    return _ler_eventos_xlsx(conteudo)
+
+
+@router.get("", summary="Listar eventos acadêmicos importados")
+def listar_eventos():
+    """Lê planilhas importadas e devolve eventos únicos ordenados por data."""
+    pasta = armazenamento.pasta_excel / ArmazenamentoArquivos.PASTAS_EXCEL["calendario"]
+    eventos = {}
+    for caminho in sorted(pasta.glob("*")) if pasta.is_dir() else []:
+        if caminho.suffix.casefold() not in {".xls", ".xlsx"} or not caminho.is_file():
+            continue
+        try:
+            for evento in _ler_eventos_arquivo(caminho):
+                chave = (evento["data"], evento["titulo"], evento["tipo"])
+                eventos[chave] = evento
+        except RuntimeError as erro:
+            raise HTTPException(status_code=503, detail=str(erro)) from erro
+        except (BadZipFile, KeyError, ElementTree.ParseError, ValueError, IndexError):
+            # Uma planilha inválida não derruba eventos válidos de outras fontes.
+            continue
+    return {"eventos": sorted(eventos.values(), key=lambda item: (item["data"], item["titulo"]))}
 
 
 def _ler_eventos_xlsx(conteudo: bytes) -> list[dict[str, str]]:
@@ -146,8 +218,8 @@ async def importar_planilha(
     """Valida, processa e armazena uma planilha Excel localmente.
 
     Multipart: `arquivo` e `categoria`. A categoria é explícita para não
-    classificar planilhas vazias ou layouts diferentes por suposição. O retorno
-    inclui a categoria e o nome salvo. Para `.xls`, primeiro salve como `.xlsx`.
+    classificar planilhas vazias ou layouts diferentes por suposição. Arquivos
+    XLS e XLSX são preservados na pasta de referência correspondente.
     """
     nome_original = arquivo.filename or ""
     nome_minusculo = nome_original.lower()
@@ -165,16 +237,16 @@ async def importar_planilha(
         raise HTTPException(status_code=400, detail="O arquivo está vazio.")
     if len(conteudo) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="A planilha excede o limite de 10 MB.")
-    if nome_minusculo.endswith(".xls"):
-        raise HTTPException(
-            status_code=415,
-            detail="Planilhas XLS binárias ainda não são suportadas. Salve o arquivo como XLSX.",
-        )
-
     eventos: list[dict[str, str]] = []
     if categoria == "calendario":
         try:
-            eventos = _ler_eventos_xlsx(conteudo)
+            eventos = (
+                _ler_eventos_xls(conteudo)
+                if nome_minusculo.endswith(".xls")
+                else _ler_eventos_xlsx(conteudo)
+            )
+        except RuntimeError as erro:
+            raise HTTPException(status_code=503, detail=str(erro)) from erro
         except (BadZipFile, KeyError, ElementTree.ParseError, ValueError, IndexError) as erro:
             raise HTTPException(
                 status_code=422,
