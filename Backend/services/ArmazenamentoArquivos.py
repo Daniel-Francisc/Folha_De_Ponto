@@ -184,3 +184,84 @@ class ArmazenamentoArquivos:
             backup.rename(destino)
             raise
         return destino
+
+    def atualizar_pdf_existente(
+        self,
+        caminho_atual: str | Path,
+        conteudo: bytes,
+        servidor_id: str,
+        nome_servidor: str,
+        competencia: str,
+        substituir: bool = False,
+    ) -> Path:
+        """Reposiciona um PDF corrigido e mantém colisões explícitas.
+
+        O método é usado quando a revisão no frontend altera servidor, nome ou
+        competência. O PDF de origem só é removido depois que o destino foi
+        gravado com sucesso. Se houver outro arquivo no destino, ele só será
+        arquivado quando `substituir=True`, usando a convenção `_OLD_`.
+
+        Raises:
+            ValueError: caminho fora da pasta PDFs ou metadados inválidos.
+            FileExistsError: destino já ocupado sem autorização de substituição.
+        """
+        origem = Path(caminho_atual).expanduser().resolve()
+        raiz_pdf = self.pasta_pdfs.resolve()
+        if not origem.is_relative_to(raiz_pdf) or not origem.is_file():
+            raise ValueError("O PDF atual não está disponível no armazenamento local.")
+
+        # Reutiliza a validação e a regra de nomes já estabelecidas por salvar_pdf.
+        if not conteudo or not conteudo.startswith(b"%PDF-"):
+            raise ValueError("O arquivo recebido não contém um PDF válido.")
+        if not servidor_id or Path(servidor_id).name != servidor_id or servidor_id in {".", ".."}:
+            raise ValueError("ID do servidor inválido.")
+        if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", competencia):
+            raise ValueError("Competência precisa seguir o padrão AAAA-MM.")
+
+        id_seguro = self._nome_seguro(servidor_id)
+        nome_seguro = self._nome_seguro(nome_servidor)
+        destino = (
+            self.pasta_pdfs
+            / f"{id_seguro}_{nome_seguro}"
+            / competencia
+            / f"{nome_seguro}-{competencia}.pdf"
+        ).resolve()
+        if not destino.is_relative_to(raiz_pdf):
+            raise ValueError("Os dados informados geraram um caminho inválido.")
+        if origem == destino:
+            self._gravar_atomico(destino, conteudo)
+            return destino
+
+        backup: Path | None = None
+        if destino.exists():
+            if not substituir:
+                raise FileExistsError(
+                    "Já existe uma folha no destino. Confirme a substituição antes de atualizar."
+                )
+            instante = datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup = destino.with_name(
+                f"{destino.stem}_OLD_[{instante}]{destino.suffix}"
+            )
+            if backup.exists():
+                raise FileExistsError("Já existe um backup com esse horário; tente novamente.")
+            destino.rename(backup)
+
+        try:
+            self._gravar_atomico(destino, conteudo)
+        except OSError:
+            if backup is not None and backup.exists():
+                backup.rename(destino)
+            raise
+
+        # A versão corrigida já está segura no novo local. Removemos a cópia
+        # antiga para não deixar um documento com metadados desatualizados; se
+        # essa remoção falhar, desfazemos a gravação nova e restauramos eventual
+        # arquivo que ocupava o destino, mantendo o registro original utilizável.
+        try:
+            origem.unlink()
+        except OSError:
+            destino.unlink(missing_ok=True)
+            if backup is not None and backup.exists():
+                backup.rename(destino)
+            raise
+        return destino

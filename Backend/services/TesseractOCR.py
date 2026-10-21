@@ -14,6 +14,7 @@ formulário não precisa exibir.
 from dataclasses import dataclass
 from io import BytesIO
 import os
+from pathlib import Path
 
 
 class OCRNaoConfigurado(RuntimeError):
@@ -64,9 +65,24 @@ class TesseractOCR:
                 "Consulte Backend/requirements.txt."
             ) from erro
 
+        # Se não houver caminho explícito no ambiente, usa a cópia local do
+        # projeto. Assim a API funciona sem adicionar Tesseract ao PATH global.
+        pasta_tesseract_local = Path(__file__).resolve().parents[1] / "lib" / "tesseract"
+        executavel_local = pasta_tesseract_local / "tesseract.exe"
         executavel = os.getenv("TESSERACT_CMD")
+        if not executavel and executavel_local.is_file():
+            executavel = str(executavel_local)
         if executavel:
             pytesseract.pytesseract.tesseract_cmd = executavel
+
+        pasta_dados_idioma = pasta_tesseract_local / "tessdata"
+        configuracao_tesseract = "--psm 6"
+        if pasta_dados_idioma.is_dir():
+            # TESSDATA_PREFIX em vez de --tessdata-dir: o pytesseract repassa a
+            # config como lista de argumentos, então aspas viram parte do
+            # caminho e o Tesseract falha ao abrir por.traineddata. A variável
+            # também funciona quando o caminho do projeto tem espaços.
+            os.environ["TESSDATA_PREFIX"] = str(pasta_dados_idioma)
 
         try:
             documento = fitz.open(stream=conteudo_pdf, filetype="pdf")
@@ -99,7 +115,7 @@ class TesseractOCR:
                         dados = pytesseract.image_to_data(
                             imagem,
                             lang=self.idioma,
-                            config="--psm 6",
+                            config=configuracao_tesseract,
                             output_type=Output.DICT,
                         )
                 except TesseractNotFoundError as erro:

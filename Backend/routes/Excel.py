@@ -40,7 +40,7 @@ def _ler_eventos_xls(conteudo: bytes) -> list[dict[str, str]]:
         return []
     cabecalhos = [valor.casefold() for valor in linhas[0]]
     indice_data = next((i for i, nome in enumerate(cabecalhos) if nome in {"data", "dia", "date"}), None)
-    indice_titulo = next((i for i, nome in enumerate(cabecalhos) if nome in {"titulo", "título", "evento", "descrição", "descricao", "feriado"}), None)
+    indice_titulo = next((i for i, nome in enumerate(cabecalhos) if nome in {"titulo", "título", "evento", "descrição", "descricao", "especificação", "especificacao", "feriado"}), None)
     indice_tipo = next((i for i, nome in enumerate(cabecalhos) if nome in {"tipo", "categoria"}), None)
     if indice_data is None:
         raise ValueError("A planilha de calendário precisa ter uma coluna Data.")
@@ -163,7 +163,7 @@ def _ler_eventos_xlsx(conteudo: bytes) -> list[dict[str, str]]:
     indice_titulo = next(
         (
             i for i, nome in enumerate(cabecalhos)
-            if nome in {"titulo", "título", "evento", "descrição", "descricao", "feriado"}
+            if nome in {"titulo", "título", "evento", "descrição", "descricao", "especificação", "especificacao", "feriado"}
         ),
         None,
     )

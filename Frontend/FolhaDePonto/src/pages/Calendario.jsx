@@ -2,32 +2,43 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import styles from './Calendario.module.css'
 import CalendarioAcademico from '../components/CalendarioAcademico.jsx'
 import PainelCalendario from '../components/PainelCalendario.jsx'
-import { MARCAS_INICIAIS, NOTAS_INICIAIS } from '../mocks/calendario.js'
-import { alternarMarca, aplicarIntervalo, diasDoIntervalo, notaDoDia } from '../utils/marcas.js'
+import {
+  calendario as apiCalendario,
+  marcacoes as apiMarcacoes,
+  mensagemDeErro,
+  notas as apiNotas,
+} from '../services/api.js'
+import { diasDoIntervalo, notaDoDia } from '../utils/marcas.js'
 
 /**
  * Tela de Calendário (Frontend/Agent.md, seção 5.3).
  *
- * Desktop: calendário ⅔ + painel ⅓.
- * Tablet/mobile: calendário na linha inteira e painel abaixo, com FAB para enviar planilha.
- *
- * Interações:
- * - Clique no dia ........ abre a nota do período ou o formulário de nova nota.
- * - Botão direito ........ menu para marcar "sem aula" / "planejamento".
- * - Arrastar arquivo ..... o painel vira área de recebimento de .xls/.xlsx.
- *
- * Tudo em memória: nenhum dado é enviado ao backend ainda.
+ * Dados reais:
+ * - GET /notas + GET /marcacoes ............ ao abrir
+ * - POST /notas / PUT /notas/{id} .......... criar e editar nota
+ * - PUT /marcacoes ......................... marcar dias/intervalos (aditivo)
+ * - POST /calendario ....................... importar planilha .xls/.xlsx
  */
+
+/** Converte a lista da API ({dia, tipos}) no mapa usado pelo calendário. */
+function mapaDeMarcas(lista) {
+  return Object.fromEntries(lista.map((item) => [item.dia, item.tipos]))
+}
+
 export default function Calendario() {
   const [diaSelecionado, setDiaSelecionado] = useState(null)
-  const [notas, setNotas] = useState(NOTAS_INICIAIS)
-  const [marcas, setMarcas] = useState(MARCAS_INICIAIS)
+  const [notas, setNotas] = useState([])
+  const [marcas, setMarcas] = useState({})
   const [modo, setModo] = useState('nota')
   const [editando, setEditando] = useState(false)
 
   const [arrastando, setArrastando] = useState(false)
   const [arquivo, setArquivo] = useState(null)
   const [menu, setMenu] = useState(null)
+
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState('')
+  const [aviso, setAviso] = useState('')
 
   const inputArquivoRef = useRef(null)
 
@@ -39,24 +50,57 @@ export default function Calendario() {
     [notas],
   )
 
-  // Dia do menu de contexto em uma variável simples: o React Compiler
-  // memoiza as dependências dos callbacks e não pode ler `menu.dia` quando
-  // `menu` é null.
   const diaDoMenu = menu?.dia ?? null
+
+  /* ---------- Carga inicial ---------- */
+
+  useEffect(() => {
+    let ativo = true
+
+    Promise.all([apiNotas.listar(), apiMarcacoes.listar()])
+      .then(([listaNotas, listaMarcas]) => {
+        if (!ativo) return
+        setNotas(listaNotas)
+        setMarcas(mapaDeMarcas(listaMarcas))
+      })
+      .catch((falha) => {
+        if (ativo) setErro(mensagemDeErro(falha))
+      })
+      .finally(() => {
+        if (ativo) setCarregando(false)
+      })
+
+    return () => {
+      ativo = false
+    }
+  }, [])
 
   /* ---------- Arquivo ---------- */
 
-  function receberArquivo(arquivoEscolhido) {
+  async function receberArquivo(arquivoEscolhido) {
     if (!arquivoEscolhido) return
 
-    const valido = /\.(xls|xlsx)$/i.test(arquivoEscolhido.name)
+    if (!/\.(xls|xlsx)$/i.test(arquivoEscolhido.name)) {
+      setArquivo({
+        nome: arquivoEscolhido.name,
+        erro: 'Formato inválido. Envie um arquivo .xls ou .xlsx.',
+      })
+      setModo('arquivo')
+      return
+    }
 
-    setArquivo({
-      nome: arquivoEscolhido.name,
-      tamanho: arquivoEscolhido.size,
-      erro: valido ? null : 'Formato inválido. Envie um arquivo .xls ou .xlsx.',
-    })
+    setErro('')
+    setAviso('Importando planilha…')
     setModo('arquivo')
+
+    try {
+      const resposta = await apiCalendario.importar(arquivoEscolhido)
+      setArquivo({ nome: resposta.arquivo, erro: null })
+      setAviso(`${resposta.eventos.length} evento(s) importado(s) da planilha.`)
+    } catch (falha) {
+      setArquivo({ nome: arquivoEscolhido.name, erro: mensagemDeErro(falha) })
+      setAviso('')
+    }
   }
 
   function abrirSeletorDeArquivo() {
@@ -71,10 +115,7 @@ export default function Calendario() {
   }
 
   function aoSairDoArraste(evento) {
-    // Só encerra quando o ponteiro sai da página, não dos filhos.
-    if (!evento.currentTarget.contains(evento.relatedTarget)) {
-      setArrastando(false)
-    }
+    if (!evento.currentTarget.contains(evento.relatedTarget)) setArrastando(false)
   }
 
   function aoSoltar(evento) {
@@ -92,17 +133,21 @@ export default function Calendario() {
     setMenu(null)
   }
 
-  /** Cria uma nota nova ou atualiza a que está em edição. */
-  function salvarNota({ id, ...dados }) {
-    if (id) {
-      setNotas((atuais) =>
-        atuais.map((item) => (item.id === id ? { ...item, ...dados } : item)),
-      )
-    } else {
-      setNotas((atuais) => [...atuais, { id: `nota-${Date.now()}`, ...dados }])
-    }
+  async function salvarNota({ id, ...dados }) {
+    try {
+      const salva = id
+        ? await apiNotas.atualizar(id, dados)
+        : await apiNotas.criar(dados)
 
-    setEditando(false)
+      setNotas((atuais) =>
+        id ? atuais.map((item) => (item.id === id ? salva : item)) : [...atuais, salva],
+      )
+      setEditando(false)
+      setErro('')
+      setAviso(id ? 'Nota atualizada.' : 'Nota criada.')
+    } catch (falha) {
+      setErro(mensagemDeErro(falha))
+    }
   }
 
   /* ---------- Marcações ---------- */
@@ -112,10 +157,18 @@ export default function Calendario() {
     setMenu({ x: evento.clientX, y: evento.clientY, dia })
   }
 
-  function marcarDiaRapido(tipo) {
+  /** A API soma marcações; para remover seria necessário um endpoint de exclusão. */
+  async function marcarDiaRapido(tipo) {
     if (!diaDoMenu) return
-    setMarcas((atuais) => alternarMarca(atuais, diaDoMenu, tipo))
-    setMenu(null)
+
+    try {
+      const lista = await apiMarcacoes.salvar([{ inicio: diaDoMenu, fim: diaDoMenu, tipo }])
+      setMarcas(mapaDeMarcas(lista))
+      setMenu(null)
+      setErro('')
+    } catch (falha) {
+      setErro(mensagemDeErro(falha))
+    }
   }
 
   function abrirMarcacaoEmIntervalo() {
@@ -125,9 +178,15 @@ export default function Calendario() {
     setMenu(null)
   }
 
-  function salvarMarcacao({ inicio, fim, tipo }) {
-    setMarcas((atuais) => aplicarIntervalo(atuais, inicio, fim, tipo))
-    setModo('nota')
+  async function salvarMarcacao({ inicio, fim, tipo }) {
+    try {
+      const lista = await apiMarcacoes.salvar([{ inicio, fim, tipo }])
+      setMarcas(mapaDeMarcas(lista))
+      setModo('nota')
+      setErro('')
+    } catch (falha) {
+      setErro(mensagemDeErro(falha))
+    }
   }
 
   /* ---------- Menu: fecha com Esc ---------- */
@@ -163,6 +222,20 @@ export default function Calendario() {
       data-arrastando={arrastando ? 'true' : undefined}
     >
       <h1 id="titulo-calendario">Calendário</h1>
+
+      {erro && (
+        <p className={styles.erro} role="alert">
+          {erro}
+        </p>
+      )}
+
+      {aviso && (
+        <p className={styles.aviso} role="status">
+          {aviso}
+        </p>
+      )}
+
+      {carregando && <p className={styles.aviso}>Carregando notas e marcações…</p>}
 
       <div className={styles.grade}>
         <div className={styles.calendario}>

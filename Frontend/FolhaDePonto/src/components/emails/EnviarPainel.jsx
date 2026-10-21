@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import styles from './emails.module.css'
-import { EMAILS_ROTINA } from '../../mocks/emails.js'
 
 /**
  * Aba "Enviar" (Frontend/Agent.md, seção 5.4).
@@ -29,8 +28,10 @@ export default function EnviarPainel({
   onEnviar,
   onCancelar,
   erro,
+  enviando = false,
+  rotinas = [],
+  onRotinaChange,
 }) {
-  const [rotinas, setRotinas] = useState(EMAILS_ROTINA)
   const [erroRotina, setErroRotina] = useState('')
 
   const destinatarios = [
@@ -39,7 +40,7 @@ export default function EnviarPainel({
     ),
   ]
 
-  function mudarData(id, valor) {
+  function mudarData(rotina, valor) {
     if (!valor) return
 
     if (new Date(valor) < new Date()) {
@@ -48,9 +49,7 @@ export default function EnviarPainel({
     }
 
     setErroRotina('')
-    setRotinas((atuais) =>
-      atuais.map((rotina) => (rotina.id === id ? { ...rotina, data: valor } : rotina)),
-    )
+    onRotinaChange?.(rotina, valor)
   }
 
   return (
@@ -111,9 +110,9 @@ export default function EnviarPainel({
           {erro && <p className={styles.erro}>{erro}</p>}
 
           <div className={styles.acoes}>
-            <button type="submit" className={styles.botaoPrimario}>
-              <i className="bi bi-send" aria-hidden="true" />
-              Enviar
+            <button type="submit" className={styles.botaoPrimario} disabled={enviando}>
+              <i className={`bi ${enviando ? 'bi-arrow-repeat' : 'bi-send'}`} aria-hidden="true" />
+              {enviando ? 'Enviando…' : 'Enviar'}
             </button>
             <button type="button" className={styles.botaoSecundario} onClick={onCancelar}>
               Cancelar
@@ -194,7 +193,7 @@ export default function EnviarPainel({
                       type="datetime-local"
                       value={rotina.data}
                       min={agoraLocal()}
-                      onChange={(evento) => mudarData(rotina.id, evento.target.value)}
+                      onChange={(evento) => mudarData(rotina, evento.target.value)}
                       aria-label={`Data e hora — ${rotina.descricao}`}
                     />
                   </td>

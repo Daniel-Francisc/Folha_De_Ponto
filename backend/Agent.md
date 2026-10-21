@@ -13,6 +13,7 @@ Mantenha os handlers focados no protocolo HTTP: validar e interpretar a entrada,
 - `Main.py`: cria a aplicação FastAPI, configura CORS, registra os routers e expõe `GET /health`.
 - `routes/`: um arquivo por área/rota, com entrada, validação HTTP e resposta daquela área.
 - `services/`: armazenamento de arquivos, repositório JSON local, OCR e envio SMTP.
+- `services/PreprocessadorPDF.py`: divide PDFs multipágina em documentos independentes de uma página para o OCR.
 - `model/`: modelos compartilhados, quando necessário.
 - `arquivos/recebidos/`: armazenamento local padrão de arquivos e dados; pode ser substituído por `FOLHA_STORAGE_DIR`.
 - `Agent.md`: estas instruções.
@@ -29,7 +30,8 @@ Os prefixos completos estão definidos no `prefix` de cada router em `Main.py`. 
 | `GET /servidores` | `routes/Servidores.py` | Lista servidores lidos da planilha de referência em `Excel/Lista_de_Servidores/`. |
 | `GET /calendario` | `routes/Excel.py` | Lista eventos acadêmicos extraídos das planilhas importadas. |
 | `POST /calendario` | `routes/Excel.py` | Recebe multipart com `arquivo` (`.xls`/`.xlsx`) e `categoria` (`calendario` ou `servidores`); planilha limitada a 10 MB. Retorna eventos, categoria e nome do arquivo. |
-| `POST /folhas` | `routes/Arquivo.py` | Recebe um ou mais PDFs no campo multipart repetido `arquivos`; limite de 25 MB por arquivo. Executa OCR e devolve campos sugeridos. Só persiste o PDF quando também são enviados `servidor_id`, `servidor_nome` e `competencia` (`AAAA-MM`); `substituir` autoriza substituir uma versão existente. |
+| `POST /folhas` | `routes/Arquivo.py` | Recebe um ou mais PDFs no campo multipart repetido `arquivos`; limite de 25 MB por arquivo e 50 páginas por PDF. Separa páginas e executa OCR individualmente, devolvendo um documento por página. Para armazenar uma página confirmada, envie `servidor_id`, `servidor_nome` e `competencia` (`AAAA-MM`); em um PDF de várias páginas, informe também `pagina` (1-based). `substituir` autoriza substituir uma versão existente. |
+| `PUT /folhas/{documento_id}/editar` | `routes/EditarFolha.py` | Multipart: matrícula **ou** nome completo identifica o servidor; o outro dado é resolvido pelo cadastro. Competência pode ser omitida se já existir no OCR/registro. E-mail e horários também são opcionais; `arquivo` (PDF original) e `pagina` (1-based) só são necessários para OCR ainda não salvo. Persiste correções, move o PDF para a pasta/nome resultantes e atualiza o registro pendente. Folha enviada/em envio não pode ser editada. |
 | `GET /processamentos/{processamento_id}` | `routes/Processamentos.py` | Consulta um lote de PDFs já processado; retorna `404` se não existir. |
 | `GET /notas` | `routes/CalendarioNotas.py` | Lista notas; aceita filtros de data `inicio` e `fim`. |
 | `POST /notas` | `routes/CalendarioNotas.py` | Cria uma nota do calendário. |
@@ -62,12 +64,13 @@ Para exemplos detalhados dos payloads usados pela interface, consulte [../Integr
 
 ## OCR e dependências do sistema
 
-O OCR atual usa Tesseract, não PaddleOCR/PaddlePaddle:
+O OCR atual usa Tesseract, não PaddleOCR/PaddlePaddle. Antes do OCR, `services/PreprocessadorPDF.py` usa PyMuPDF para criar em memória um PDF isolado por página. `routes/Arquivo.py` passa cada PDF de uma página ao extrator e relaciona cada resposta com o arquivo e o número da página de origem. Os PDFs intermediários não são gravados; somente páginas confirmadas são armazenadas definitivamente.
 
 - `services/TesseractOCR.py`: integração com Tesseract e leitura/renderização das páginas PDF.
 - `services/ProcessadorFolhas.py`: interpretação do texto e construção de campos sugeridos para a API.
-- Dependências Python do projeto ficam declaradas em `requirements.txt`. O executável Tesseract e os dados de idioma são dependências externas do sistema, não instaladas por este código.
-- O idioma padrão configurado é português (`por`). Se o executável não estiver no `PATH`, a configuração pode usar `TESSERACT_CMD`; `TESSERACT_LANG` altera o idioma.
+- O extrator também devolve `campos.horarios` como lista de valores `HH:MM`; os horários são sugestões de OCR para revisão humana. Em layouts específicos, o rótulo `Cargo` é tratado como alias de competência (mês/ano), conforme a regra funcional do projeto.
+- Dependências Python do projeto ficam declaradas em `requirements.txt`. A cópia local do executável Tesseract desta máquina fica em `Backend/lib/tesseract/`, com modelos de idioma em `tessdata/`; o serviço detecta essa cópia sem depender do PATH global.
+- `TESSERACT_CMD` pode apontar para outro executável e `TESSERACT_LANG` altera o idioma padrão, que é português (`por`). A pasta `lib/` é ignorada pelo Git e não deve ser versionada como dependência Python.
 - Falta de binário, idioma ou dependência deve resultar em erro claro (atualmente a rota de folhas trata indisponibilidade como `503`), sem indicar falsamente que o OCR foi bem-sucedido.
 
 **Não altere, ative, recrie ou instale pacotes no Python, pip ou `.venv` sem solicitação explícita.** Não execute instalação de dependências durante tarefas de código. Se uma dependência mudar, edite apenas `requirements.txt` e informe ao usuário o comando a executar no ambiente dele.

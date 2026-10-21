@@ -5,6 +5,17 @@
    Mobile:  coluna única
    ========================================================================== */
 
+/* Aviso de falha de comunicação com a API. */
+.erro {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
 .grade {
   display: grid;
   grid-template-columns: 2fr 1fr;

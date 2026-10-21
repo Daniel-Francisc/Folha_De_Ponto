@@ -45,7 +45,7 @@ A navegação prevista contém quatro telas:
 - **Calendário (`/calendario`):** importação de planilhas `.xls`/`.xlsx`, visualização e edição de eventos acadêmicos.
 - **Emails (`/emails`):** preparação, revisão e acompanhamento de e-mails, itens recebidos e histórico.
 
-O documento do frontend registra a interface das quatro telas como construída com dados de exemplo/mocks. A integração com a API, o estado global/cliente HTTP e a persistência real ainda são pendências; consulte o agente do frontend para o estado detalhado e atualizado.
+As telas consomem rotas reais por `Frontend/FolhaDePonto/src/services/api.js`. O fluxo de folhas envia PDFs ao OCR e permite salvar as correções em `PUT /folhas/{id}/editar`; consulte os agentes de backend e frontend e confirme o código antes de assumir que outros fluxos estão completos.
 
 ## 6. Backend — resumo e foco atual
 
@@ -53,12 +53,12 @@ O backend deve manter as rotas como camada HTTP e delegar processamento para mó
 
 Prioridades principais:
 
-1. Conectar as telas do frontend às rotas de API e retirar os mocks em etapas.
+1. Completar e validar os fluxos integrados do frontend e backend em ambiente local.
 2. Definir, com a instituição, a origem de mensagens recebidas e sua configuração IMAP.
 3. Definir o conteúdo/anexos das rotinas automáticas antes de ativar o scheduler.
 4. Validar OCR e SMTP em ambiente local com Tesseract, idioma português e configuração institucional.
 
-**O fluxo ponta a ponta ainda não está pronto:** o backend possui OCR, persistência local e envio SMTP nominal, mas o frontend continua usando mocks. Rotinas não executam envios automáticos e mensagens recebidas ainda não são importadas por IMAP.
+**O fluxo ponta a ponta ainda requer validação operacional:** OCR e edição persistente de folhas estão conectados; SMTP depende de configuração. Rotinas não executam envios automáticos e mensagens recebidas ainda não são importadas por IMAP.
 
 ## 7. Regras de trabalho para agentes
 

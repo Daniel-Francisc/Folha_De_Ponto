@@ -8,6 +8,27 @@
   gap: var(--space-5);
 }
 
+/* Avisos da API. */
+.erro {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-danger-soft);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+}
+
+.aviso {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-blue-700);
+  font-size: var(--font-size-sm);
+  background-color: var(--color-blue-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
 .grade {
   display: grid;
   grid-template-columns: 2fr 1fr;

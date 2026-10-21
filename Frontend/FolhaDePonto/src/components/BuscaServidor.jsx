@@ -17,6 +17,7 @@ export default function BuscaServidor({
   onValorChange,
   onSelecionar,
   servidorSelecionado,
+  carregando = false,
 }) {
   const [aberto, setAberto] = useState(false)
   const raizRef = useRef(null)
@@ -89,7 +90,11 @@ export default function BuscaServidor({
 
         {aberto && (
           <div className={styles.cache} id="resultados-servidores">
-            <p className={styles.contagem}>{resultados.length} servidor(es) no cache</p>
+            <p className={styles.contagem}>
+            {carregando
+              ? 'Carregando servidores…'
+              : `${resultados.length} servidor(es) no cache`}
+          </p>
 
             {resultados.length === 0 ? (
               <p className={styles.vazio}>Nenhum servidor encontrado.</p>

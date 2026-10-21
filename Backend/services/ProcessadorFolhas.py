@@ -55,7 +55,23 @@ def _competencia_em_linha(linha: str) -> str:
     return ""
 
 
-def extrair_campos(texto: str) -> dict[str, str]:
+def _extrair_horarios(texto: str) -> list[str]:
+    """Localiza horários `HH:MM` no texto reconhecido, sem duplicá-los.
+
+    Algumas folhas usam ponto ou a letra ``h`` como separador (por exemplo,
+    `08.30` ou `8h30`). O frontend recebe todos os horários em ordem de leitura
+    para que uma pessoa possa corrigir erros comuns do OCR antes de salvar.
+    """
+    encontrados: list[str] = []
+    padrao = re.compile(r"(?<!\d)([01]?\d|2[0-3])\s*[:.hH]\s*([0-5]\d)(?!\d)")
+    for achado in padrao.finditer(texto):
+        horario = f"{int(achado.group(1)):02d}:{achado.group(2)}"
+        if horario not in encontrados:
+            encontrados.append(horario)
+    return encontrados
+
+
+def extrair_campos(texto: str) -> dict[str, str | list[str]]:
     """Extrai somente rótulos conhecidos; não inventa valores ausentes."""
     linhas = [linha.strip() for linha in texto.splitlines() if linha.strip()]
     campos = {
@@ -63,12 +79,15 @@ def extrair_campos(texto: str) -> dict[str, str]:
         "matricula": "",
         "email": "",
         "competencia": "",
+        "horarios": _extrair_horarios(texto),
     }
 
     # Primeiro procura a competência em uma linha explicitamente identificada.
     for linha in linhas:
         rotulo = _sem_acentos(linha).casefold()
-        if "competencia" in rotulo or "referencia" in rotulo:
+        # Algumas folhas identificam a competência sob o título "Cargo".
+        # Nesse layout, esse rótulo significa mês/ano; não é o cargo funcional.
+        if "competencia" in rotulo or "referencia" in rotulo or re.search(r"\bcargo\b", rotulo):
             data_completa = re.search(
                 r"\b\d{1,2}[/.-](0?[1-9]|1[0-2])[/.-]((?:19|20)\d{2})\b",
                 linha,

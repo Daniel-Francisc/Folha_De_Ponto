@@ -27,6 +27,8 @@ export default function PainelDocumentos({
   onSelecionar,
   campos = [],
   onCampoChange,
+  onSalvar,
+  salvando = false,
   aba,
   onAba,
   lado,
@@ -124,7 +126,13 @@ export default function PainelDocumentos({
             <>
               <p className={styles.arquivoAtivo}>{docAtivo.nome}</p>
 
-              <form className={styles.form} onSubmit={(evento) => evento.preventDefault()}>
+              <form
+                className={styles.form}
+                onSubmit={(evento) => {
+                  evento.preventDefault()
+                  onSalvar?.()
+                }}
+              >
                 {campos.map((campo) => (
                   <label key={campo.id} className={styles.campo}>
                     <span className={styles.campoRotulo}>{campo.rotulo}</span>
@@ -136,10 +144,13 @@ export default function PainelDocumentos({
                     />
                   </label>
                 ))}
+                <button className={styles.botaoSalvar} type="submit" disabled={salvando}>
+                  {salvando ? 'Salvando…' : 'Salvar alterações'}
+                </button>
               </form>
 
               <p className={styles.nota}>
-                Alterações ficam apenas na tela até o backend expor o endpoint de atualização.
+                A competência também define a pasta e o nome final do PDF. Confira os dados antes de salvar.
               </p>
             </>
           )}

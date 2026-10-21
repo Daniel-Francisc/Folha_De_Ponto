@@ -7,7 +7,7 @@ Este guia descreve como conectar as telas React à API FastAPI existente. Foi co
 As telas do frontend ainda usam dados de exemplo em `Frontend/FolhaDePonto/src/mocks/`; não trate esses dados como respostas da API. O backend disponibiliza as rotas listadas neste guia, mas alguns fluxos ainda têm limitações importantes:
 
 - OCR é executado de forma síncrona com Tesseract. Para a API funcionar, o servidor precisa ter o executável e o idioma configurados.
-- O OCR apenas sugere valores. A primeira chamada sem dados confirmados não armazena o PDF. Para gravar depois da revisão, o contrato atual exige enviar novamente o PDF junto com os metadados confirmados; ainda não existe um endpoint separado para confirmar um processamento existente.
+- O OCR apenas sugere valores. A primeira chamada sem dados confirmados não armazena as páginas. Depois da revisão, `PUT /folhas/{documento_id}/editar` persiste os dados; para OCR ainda não salvo, envie o PDF original e a página. Para folha já armazenada, a API reutiliza o arquivo local.
 - Não há rota para baixar/visualizar o PDF armazenado. A resposta não expõe caminhos absolutos do disco e o frontend não deve tentar usá-los como URL.
 - Rotinas são salvas com status `aguardando_configuracao`, mas não disparam e-mails automaticamente.
 - A lista de recebidos só retorna mensagens já persistidas; não há importação de caixa de e-mail por IMAP.
@@ -51,7 +51,7 @@ Para `FormData`, **não** defina manualmente `Content-Type`: o navegador precisa
 | Busca de servidores | `GET /servidores` | Lista direta de `{id, matricula, nome, email}`; pode ser `[]`. Carregue e atualize o cache a partir desta resposta. |
 | Importar calendário ou cadastro | `POST /calendario` | `multipart/form-data`: `arquivo` e `categoria` (`calendario` ou `servidores`). XLS/XLSX até 10 MB. Retorna `{eventos, categoria, arquivo}`. |
 | Mostrar eventos importados | `GET /calendario` | `{ eventos: [{data: "YYYY-MM-DD", titulo, tipo}] }`. |
-| Processar PDF para revisão | `POST /folhas` | Multipart com um ou mais campos repetidos `arquivos`; sem metadados roda OCR, mas não salva. Limite de 25 MB por PDF. |
+| Processar PDF para revisão | `POST /folhas` | Multipart com campos repetidos `arquivos`; separa cada página e devolve um resultado OCR por página. Limite de 25 MB e 50 páginas por PDF. |
 | Consultar lote OCR | `GET /processamentos/{processamentoId}` | Registro `{id,status,criadoEm,documentos}` ou `404`. A chamada OCR atual é síncrona, então é consulta posterior, não polling obrigatório. |
 | Salvar nota no calendário | `POST /notas`; editar: `PUT /notas/{id}` | JSON `{titulo,inicio,fim,contexto}` com datas `YYYY-MM-DD`; resposta contém `id` e timestamps. |
 | Consultar notas | `GET /notas?inicio=YYYY-MM-DD&fim=YYYY-MM-DD` | Lista direta. Os filtros são opcionais e incluem notas que cruzem o período. |
@@ -86,7 +86,7 @@ Ao importar cadastro, atualize a lista em memória chamando `GET /servidores` ap
 
 ## Upload e confirmação de folhas PDF
 
-Envie cada lote sem metadados para apresentar as sugestões do OCR:
+Envie cada lote sem metadados para apresentar as sugestões do OCR. O backend divide cada PDF em PDFs de uma página em memória e lê cada página separadamente:
 
 ```js
 const form = new FormData();
@@ -94,9 +94,11 @@ arquivos.forEach((arquivo) => form.append("arquivos", arquivo));
 const resultado = await fetch(`${API_BASE}/folhas`, { method: "POST", body: form });
 ```
 
-O contrato de resposta é `{processamentoId, documentos}`. Um documento contém `id`, `nome`, `status`, `score`, `competencia`, `servidorId`, `armazenado`, `caminho` relativo ou `null`, `campos`, `paginasLidas` e `mensagem`. `campos` inclui sugestões como servidor, matrícula, e-mail e competência. O score é confiança média do reconhecimento de texto, não probabilidade de identificação correta; sempre permita revisão humana.
+O contrato de resposta é `{processamentoId, documentos}`. Cada documento representa uma página e contém `id`, `nome`, `arquivoOrigem`, `paginaOrigem` (contagem começa em 1), `totalPaginasOrigem`, `status`, `score`, `competencia`, `servidorId`, `armazenado`, `caminho` relativo ou `null`, `campos`, `paginasLidas` (1) e `mensagem`. `campos` inclui sugestões como servidor, matrícula, e-mail e competência. O score é confiança média do reconhecimento de texto, não probabilidade de identificação correta; sempre permita revisão humana.
 
-**Passo para persistir após revisão:** a rota exige um único PDF por requisição quando há metadados. O formulário deve conservar o `File` original selecionado; após a pessoa confirmar servidor e competência, enviar esse mesmo arquivo de novo em `arquivos`, com `servidor_id`, `servidor_nome`, `competencia` no formato `AAAA-MM` e, se a pessoa autorizou substituir uma folha existente, `substituir=true`. A resposta então deve indicar `armazenado: true`. Como ainda não há endpoint que aceite apenas `processamentoId + metadados`, documente essa nova transmissão para o usuário em vez de afirmar que o primeiro upload já ficou salvo.
+**Passo para persistir após revisão:** chame `PUT /folhas/{documento_id}/editar` em multipart. Para identificar o servidor, matrícula (`servidor_id`) **ou** nome completo (`servidor_nome`) basta; o backend procura o outro dado no cadastro. A competência existente no OCR/registro é reutilizada quando não enviada. Para OCR ainda não salvo, conserve e envie o `File` original e `pagina` (valor `paginaOrigem`); para folha já salva, ambos podem ser omitidos. E-mail e horários também são opcionais. A API armazena apenas a página revisada e organiza o PDF em `PDFs/{id}_{nome}/{AAAA-MM}/{nome}-{AAAA-MM}.pdf`. Se houver colisão, a API responde `409`; só envie `substituir=true` após decisão explícita. A versão substituída recebe `_OLD_[AAAAMMDD-HHMMSS]`.
+
+O OCR devolve `campos.horarios` como uma lista de horários no formato `HH:MM`. Para alguns modelos de folha, a palavra `Cargo` pode identificar a competência; trate essa leitura como sugestão e permita correção manual.
 
 ## Contratos JSON usados nas telas
 

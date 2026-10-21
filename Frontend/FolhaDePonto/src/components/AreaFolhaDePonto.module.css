@@ -98,6 +98,48 @@
   border-color: var(--color-border-strong);
 }
 
+/* ---------- Processando (OCR) ---------- */
+
+.processando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 360px;
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  background-color: var(--color-blue-50);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.processandoIcone {
+  margin-bottom: var(--space-2);
+  color: var(--color-blue-600);
+  font-size: 2.5rem;
+  animation: girar 1s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.processandoTitulo {
+  margin: 0;
+  color: var(--color-blue-900);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.processandoTexto {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
 /* ---------- Zona de upload ---------- */
 
 .upload {
@@ -179,6 +221,8 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
 }
+
+/* Visualizador do PDF: componente PdfViewer (pdf.js). */
 
 /* ---------- Carrossel ---------- */
 

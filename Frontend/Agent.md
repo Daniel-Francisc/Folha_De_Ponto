@@ -2,7 +2,7 @@
 
 > **Para qualquer IA que for atuar aqui:** este documento é autocontido de propósito. Leia-o por completo antes de tocar em qualquer arquivo. Ele complementa o contexto geral em [../Agent.md](../Agent.md) e os detalhes de backend em [../Backend/Agent.md](../Backend/Agent.md) — leia os dois também, mas **este arquivo é a fonte da verdade sobre o frontend**.
 
-Última atualização desta especificação: **19/10/2026**.
+Última atualização desta especificação: **21/10/2026**.
 
 ---
 
@@ -46,20 +46,20 @@ Navegador (React + Vite)  ──HTTP/JSON──▶  FastAPI (Python)  ──▶ 
 
 | Área | Arquivo | Situação |
 |---|---|---|
-| Inicialização | `Backend/Main.py` | Registra routers; **atualmente quebrado** (importa `Backend.lib.*`, que não existe) |
-| Servidores | `Backend/routes/Servidores.py` | `GET/POST/PUT /servidores` — stubs que retornam mensagem fixa |
-| Excel | `Backend/routes/Excel.py` | `POST /` recebe `.xls/.xlsx`, valida extensão, delega ao extrator |
-| PDFs/OCR | `Backend/routes/Arquivo.py` | **vazio** — placeholder do fluxo principal |
-| Modelo | `Backend/model/servidor.py` | **vazio** |
+| Inicialização | `Backend/Main.py` | FastAPI, CORS local e registro dos routers. |
+| Servidores | `Backend/routes/Servidores.py` | `GET /servidores` lista o cadastro importado. |
+| Excel | `Backend/routes/Excel.py` | Importa calendário/cadastro por `POST /calendario`; lista eventos por `GET /calendario`. |
+| PDFs/OCR | `Backend/routes/Arquivo.py` | `POST /folhas` separa páginas, aplica Tesseract e retorna campos sugeridos. |
+| Edição de folhas | `Backend/routes/EditarFolha.py` | `PUT /folhas/{id}/editar` persiste correções e move o PDF para a pasta/competência correspondentes. |
 | E-mail | `Backend/services/EmailServices.py` + `Backend/config/EmailConnection.py` | Envio SMTP implementado (host/porta via env, anexo PDF, sem autenticação) |
 
-**Estado real confirmado:** o app não sobe (`ModuleNotFoundError: No module named 'Backend.lib'`), não há rota de PDF/OCR, e não há bibliotecas de OCR nem `pandas`/`openpyxl` instaladas. **A maior parte do fluxo é planejada, não implementada.** Confirme sempre o código antes de codar contra ele.
+**Estado real confirmado em 21/10/2026:** há rotas de OCR, consulta de pendentes e edição persistente de folhas; o OCR usa Tesseract. `POST /folhas` devolve um item por página, e `PUT /folhas/{id}/editar` recebe as correções multipart. A edição atualiza o registro e organiza o PDF em `PDFs/{id}_{nome}/{AAAA-MM}/{nome}-{AAAA-MM}.pdf`. `campos.horarios` contém os horários detectados; em modelos de formulário específicos, `Cargo` é aceito como rótulo de competência. Consulte sempre os handlers antes de assumir detalhes atuais.
 
 ### Frontend (React + Vite) — onde você atua
 
 SPA em JavaScript/JSX servida pelo Vite. É a única interface do usuário: upload, validação dos dados lidos, edição do calendário, envio de e-mails, notificações e mensagens de erro.
 
-**Estado atual: Início, Servidor e Calendário com UI.** Tokens, base, shell global e as três telas estilizadas; tudo com dados de exemplo em `src/mocks/`. Falta a tela **Emails**.
+**Estado atual: quatro telas com UI e integradas à API.** Tokens, shell global, Início, Servidor, Calendário e Emails estilizados e consumindo as rotas reais via `src/services/api.js` (axios). Os mocks foram removidos.
 
 ---
 
@@ -313,9 +313,9 @@ Dividida em **três regiões**.
 
 ---
 
-## 8. O que o frontend precisa do backend (contrato a confirmar)
+## 8. Contratos confirmados do backend
 
-O `Backend/Agent.md` avisa que os endpoints **não estão confirmados**. **Não invente rotas**: verifique `Backend/routes/` e alinhe antes de codar.
+Os caminhos abaixo refletem os handlers atuais. Ao alterar a integração, atualize também `Backend/Agent.md` e `Integracao_Backend.md`.
 
 | Necessidade | Entrada | Saída esperada |
 |---|---|---|
@@ -323,16 +323,11 @@ O `Backend/Agent.md` avisa que os endpoints **não estão confirmados**. **Não 
 | Salvar calendário editado | JSON do calendário | confirmação |
 | Listar/buscar servidores | — (ou cache local) | lista de servidores |
 | Enviar folhas de ponto | 1+ PDFs (multipart) | dados extraídos + score por página |
-| Consultar resultado do processamento | id/lote | status, servidor, competência, confiança |
+| Salvar correções da folha | `PUT /folhas/{id}/editar`, multipart; matrícula ou nome completo basta para identificar o servidor, e o outro valor é resolvido pelo cadastro. Competência existente pode ser reutilizada; para OCR ainda não salvo, envie também PDF original + página | registro persistido; PDF organizado conforme metadados |
+| Consultar resultado do processamento | `GET /processamentos/{id}` | status, documentos por página e campos OCR |
 | Enviar e-mails | JSON (mensagem, servidor, e-mail, arquivo) | sucesso/falha por destinatário |
 
-Requisitos técnicos que **precisam** existir no backend:
-
-- **CORS habilitado** para a origem do Vite (hoje não há `CORSMiddleware` no `Main.py`).
-- **Limite de tamanho de upload** coerente com PDFs digitalizados (podem ser grandes).
-- Erros com **status HTTP correto** e corpo `{"detail": "..."}` legível (hoje um `except Exception` genérico transforma tudo em 400).
-
-> Proposta de contrato, **apenas para discussão**: `POST /api/calendario`, `PUT /api/calendario`, `GET /api/servidores`, `POST /api/folhas`, `GET /api/processamentos/{id}`, `POST /api/emails`. Qualquer versão final deve ser registrada aqui ou no `Backend/Agent.md`.
+O cliente HTTP real está em `src/services/api.js`. A edição usa `FormData`; não defina manualmente um `Content-Type` multipart que remova o boundary do navegador. O backend aceita competência em `MM/AAAA` ou `AAAA-MM`, enquanto o armazenamento sempre usa `AAAA-MM`.
 
 ---
 
@@ -356,11 +351,8 @@ Frontend/
         │   ├── calendario.js ← matriz do mês, datas e rótulos (sem UI)
         │   ├── marcas.js     ← alternar marca, intervalo e nota do dia
         │   └── busca.js      ← normalização e filtro "número|nome"
-        ├── mocks/
-        │   ├── inicio.js     ← dados de exemplo (remover quando houver API)
-        │   ├── servidores.js ← servidores e documentos de exemplo
-        │   ├── calendario.js ← notas e marcações de exemplo
-        │   └── emails.js     ← template e histórico de exemplo
+        ├── services/
+        │   └── api.js        ← axios + todas as rotas do backend
         ├── styles/
         │   ├── tokens.css    ← design tokens (fonte única de verdade)
         │   └── base.css      ← reset, tipografia e acessibilidade
@@ -379,6 +371,7 @@ Frontend/
         │   ├── BuscaServidor.jsx
         │   ├── PainelDocumentos.jsx
         │   ├── AreaFolhaDePonto.jsx (+ .module.css)
+        │   ├── PdfViewer.jsx (+ .module.css) ← pré-visualização com pdf.js
         │   ├── PainelCalendario.jsx (+ .module.css)
         │   ├── emails/
         │   │   ├── emails.module.css ← estilos compartilhados pelas 3 abas
@@ -416,6 +409,7 @@ Frontend/
 | ESLint | 10 (flat config) |
 | React Router | 7.18 (`react-router-dom`) |
 | Ícones | Bootstrap Icons 1.13 |
+| PDF | pdfjs-dist 6 (render em `<canvas>`) + axios 1.20 |
 | Estilos | CSS puro com **CSS Modules** + tokens em `src/styles/` |
 | Linguagem | JavaScript/JSX (sem TypeScript no momento) |
 
@@ -476,7 +470,7 @@ npm run preview  # pré-visualizar o build
 - [x] Cards Funcionários e Emails + grid responsivo da tela Início.
 - [x] UI da tela Servidor (busca com cache, upload, painel lateral com abas e carrossel).
 - [x] UI da tela Calendário (notas, marcações em série, menu de contexto e recebimento de planilha).
-- [ ] Substituir os dados de exemplo (`src/mocks/*`) pela API real.
+- [x] Telas consumindo a API real (mocks removidos).
 - [x] Tela **Início** (calendário + cards).
 - [x] Tela **Servidor** (busca com pipe, cache, upload, validação, carrossel).
 - [x] Tela **Calendário** (notas editáveis, marcações em série, recebimento de planilha).

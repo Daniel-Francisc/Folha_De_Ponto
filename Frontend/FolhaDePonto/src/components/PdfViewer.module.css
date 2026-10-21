@@ -1,0 +1,32 @@
+.visualizador {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 70vh;
+  padding: var(--space-3);
+  overflow-y: auto;
+  background-color: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.paginas {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: center;
+}
+
+/* Estilo aplicado aos canvases criados pelo pdf.js. */
+.paginas canvas {
+  max-width: 100%;
+  background-color: #ffffff;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+}
+
+.aviso {
+  margin: 0;
+  padding: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}

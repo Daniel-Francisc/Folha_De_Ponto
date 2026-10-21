@@ -28,7 +28,11 @@ def listar_marcacoes(inicio: date | None = Query(default=None), fim: date | None
     for marca in repositorio.listar("marcacoes"):
         dia = date.fromisoformat(marca["dia"])
         if (inicio is None or dia >= inicio) and (fim is None or dia <= fim):
-            por_dia.setdefault(dia.isoformat(), set()).add(marca["tipo"])
+            # O PUT grava `tipos` (lista). O fallback em `tipo` mantém
+            # compatibilidade com registros antigos no formato singular.
+            tipos = marca.get("tipos") or ([marca["tipo"]] if marca.get("tipo") else [])
+            for tipo in tipos:
+                por_dia.setdefault(dia.isoformat(), set()).add(tipo)
     return [{"dia": dia, "tipos": sorted(tipos)} for dia, tipos in sorted(por_dia.items())]
 
 @router.put("", summary="Adicionar intervalos de marcação ao calendário")

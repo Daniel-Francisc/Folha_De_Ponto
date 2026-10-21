@@ -17,6 +17,7 @@ load_dotenv(Path(__file__).resolve().with_name(".env.development"), override=Fal
 from Backend.routes.Arquivo import router as router_arquivo
 from Backend.routes.CalendarioNotas import router as router_notas
 from Backend.routes.Emails import router as router_emails
+from Backend.routes.EditarFolha import router as router_editar_folha
 from Backend.routes.Excel import router as router_excel
 from Backend.routes.Historico import router as router_historico
 from Backend.routes.Inicio import router as router_inicio
@@ -51,6 +52,7 @@ app.add_middleware(
 app.include_router(router_servidores)
 app.include_router(router_excel)
 app.include_router(router_arquivo)
+app.include_router(router_editar_folha)
 app.include_router(router_notas)
 app.include_router(router_marcacoes)
 app.include_router(router_emails)

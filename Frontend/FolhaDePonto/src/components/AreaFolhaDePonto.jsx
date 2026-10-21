@@ -1,4 +1,5 @@
 import styles from './AreaFolhaDePonto.module.css'
+import PdfViewer from './PdfViewer.jsx'
 
 /**
  * Área central da tela Servidor (Frontend/Agent.md, seção 5.2-C).
@@ -19,6 +20,7 @@ export default function AreaFolhaDePonto({
   documentoAtivo,
   documentos = [],
   onEnviarArquivo,
+  enviando = false,
   mostrarOutros,
   onAlternarOutros,
   onSelecionar,
@@ -73,7 +75,15 @@ export default function AreaFolhaDePonto({
       </header>
 
       {/* ---------- Conteúdo central ---------- */}
-      {!documentoAtivo ? (
+      {enviando ? (
+        <div className={styles.processando} role="status">
+          <i className={`bi bi-arrow-repeat ${styles.processandoIcone}`} aria-hidden="true" />
+          <p className={styles.processandoTitulo}>Lendo o PDF…</p>
+          <p className={styles.processandoTexto}>
+            O OCR pode levar até 1 minuto por arquivo. Não feche a página.
+          </p>
+        </div>
+      ) : !documentoAtivo ? (
         <label className={styles.upload}>
           <i className={`bi bi-cloud-arrow-up ${styles.uploadIcone}`} aria-hidden="true" />
           <span className={styles.uploadTitulo}>Envie a folha de ponto</span>
@@ -87,12 +97,15 @@ export default function AreaFolhaDePonto({
             onChange={aoEscolher}
           />
         </label>
+      ) : documentoAtivo.urlPdf ? (
+        <PdfViewer url={documentoAtivo.urlPdf} nome={documentoAtivo.nome} />
       ) : (
         <div className={styles.visualizador}>
           <i className={`bi bi-file-earmark-pdf ${styles.previewIcone}`} aria-hidden="true" />
           <p className={styles.previewNome}>{documentoAtivo.nome}</p>
           <p className={styles.previewNota}>
-            A pré-visualização do PDF aparece aqui quando o backend fornecer o arquivo.
+            PDF já armazenado no backend. A pré-visualização aparece para arquivos enviados
+            nesta sessão; não há rota de download na API.
           </p>
         </div>
       )}

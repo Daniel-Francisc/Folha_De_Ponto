@@ -2,9 +2,36 @@
 
 Documento de apoio: lista **todos os pontos do frontend que vão receber dados do backend** e explica, de forma simples, como cada um é usado na tela.
 
-> Situação revalidada em 21/10/2026: as rotas do backend estão implementadas e os dados operacionais são persistidos localmente em JSON. O frontend ainda não faz chamadas HTTP e as telas continuam usando dados de exemplo em `Frontend/FolhaDePonto/src/mocks/`.
+> Situação revalidada em 21/10/2026: as rotas do backend estão implementadas e persistem dados localmente em JSON. As quatro telas do frontend **consomem a API** via `src/services/api.js` (axios); os arquivos de mock foram removidos.
 
 ---
+
+## 0. Camada de API (axios)
+
+Arquivo: **`Frontend/FolhaDePonto/src/services/api.js`**
+
+- URL base: `VITE_API_URL` (arquivo `.env`) ou `http://127.0.0.1:8000`.
+- Toda chamada passa por um único `http` (axios), com timeout padrão de 30 s e **300 s para uploads de OCR**.
+- `mensagemDeErro(erro)` converte falhas em texto pronto para a tela (lê `detail`, inclusive listas de validação do FastAPI).
+
+Uso nos componentes:
+
+```js
+import { servidores, notas, emails, mensagemDeErro } from '../services/api.js'
+
+const lista = await servidores.listar()
+const doPeriodo = await notas.listar({ inicio: '2026-10-01', fim: '2026-10-31' })
+const pendentes = await emails.pendentes()
+
+try {
+  await emails.enviar(payload)
+} catch (erro) {
+  setErro(mensagemDeErro(erro))
+}
+```
+
+Grupos exportados: `servidores`, `calendario`, `notas`, `marcacoes`, `folhas`, `emails`, `rotinas`, `recebidos`, `historico`, `painel` e `health()`.
+
 
 ## 1. Visão geral dos pontos de integração
 
@@ -53,16 +80,19 @@ Documento de apoio: lista **todos os pontos do frontend que vão receber dados d
 
 Onde: área central da tela Servidor.
 
-Request: multipart/form-data com um ou mais PDFs enviados no campo repetido arquivos. Limite de 25 MB por PDF.
+Request: multipart/form-data com um ou mais PDFs enviados no campo repetido `arquivos`. Limite de 25 MB por arquivo e 50 páginas por PDF. Cada página é separada em um PDF independente em memória antes do OCR.
 
-Resposta: o backend executa Tesseract e devolve sugestões para revisão humana no envelope documentos. A identificação do OCR não é confirmação nem salva o arquivo automaticamente.
+Resposta: o backend executa Tesseract separadamente em cada página e devolve um item por folha no envelope `documentos`. A identificação do OCR não é confirmação nem salva o arquivo automaticamente.
 
 Exemplo de item:
 
 ~~~json
 {
   "id": "d1",
-  "nome": "folha_digitalizada.pdf",
+  "nome": "folha_digitalizada_pagina_001.pdf",
+  "arquivoOrigem": "folha_digitalizada.pdf",
+  "paginaOrigem": 1,
+  "totalPaginasOrigem": 3,
   "status": "baixo",
   "score": 0.92,
   "competencia": "09/2026",
@@ -74,7 +104,8 @@ Exemplo de item:
     "servidor": "Maria Silva",
     "matricula": "1234567",
     "email": "",
-    "competencia": "09/2026"
+    "competencia": "09/2026",
+    "horarios": ["08:00", "12:00", "13:00", "17:00"]
   },
   "mensagem": "Revise os campos extraídos antes de salvar a folha."
 }
@@ -84,9 +115,13 @@ Como o front usa
 
 - status define a cor do documento: corrigido (azul), ok (ciano), baixo (amarelo), nao_escaneado (neutro).
 - score é a média das confianças de palavras do Tesseract no intervalo 0–1; não representa a probabilidade de o servidor ter sido identificado.
-- campos preenche a aba Dados para revisão e correção.
-- paginasLidas informa quantas páginas foram processadas.
+- `campos` preenche a aba Dados para revisão e correção.
+- `campos.horarios` traz os horários identificados pelo OCR em ordem de leitura e pode ser corrigido no painel. Em formulários específicos, o rótulo `Cargo` é aceito como alias de competência (mês/ano).
+- `paginaOrigem` e `totalPaginasOrigem` indicam qual folha do arquivo enviado produziu o resultado. `paginasLidas` será 1, pois cada chamada de OCR recebe um PDF de uma página.
 - armazenado e caminho mostram se o PDF foi gravado. O upload sem servidor e competência confirmados apenas processa e devolve os dados.
+- Após revisar, o frontend chama `PUT /folhas/{documento_id}/editar` em multipart. Para identificar o servidor, basta `servidor_id` ou `servidor_nome`; o cadastro completa o outro. E-mail, horários e competência podem ser omitidos quando já houverem sido lidos/salvos. Para OCR ainda não armazenado, envie também `arquivo` original e `pagina` (igual a `paginaOrigem` no PDF multipágina). O backend grava somente a página selecionada.
+- A competência corrigida também define o destino: `PDFs/{id}_{nome}/{AAAA-MM}/{nome}-{AAAA-MM}.pdf`. Ao alterar servidor, nome ou competência, o backend move o arquivo, atualiza o registro pendente e impede colisões. `substituir=true` exige confirmação do usuário; a versão substituída recebe `_OLD_[AAAAMMDD-HHMMSS]`.
+- Para editar folha já salva, `arquivo` pode ser omitido. Folhas enviadas ou em envio não podem ser editadas.
 - Status: nao_escaneado quando nenhum texto foi reconhecido; baixo quando a confiança está abaixo de 0,95 ou faltam matrícula/competência; ok quando os campos mínimos foram localizados e a confiança é pelo menos 0,95. corrigido fica reservado para revisão humana.
 
 O executável Tesseract e o idioma português por.traineddata são requisitos do sistema que hospeda a API. Configure TESSERACT_CMD se tesseract.exe não estiver no PATH e TESSERACT_LANG para selecionar o idioma.
@@ -325,7 +360,8 @@ O backend aceita `.xlsx` e `.xls` de até 10 MB. Para `.xls`, `xlrd==2.0.2` lê 
 | `GET /servidores` | — | Lista `[{id, matricula, nome, email}]` ou `[]` |
 | `GET /calendario` | — | `{ "eventos": [...] }` lidos das planilhas de calendário |
 | `POST /calendario` | Multipart `arquivo` (`.xls`/`.xlsx`, até 10 MB) e `categoria` (`calendario` ou `servidores`) | `{ "eventos": [...], "categoria": "...", "arquivo": "..." }`; grava em `Excel/Calendario_Academico` ou `Excel/Lista_de_Servidores` |
-| POST /folhas | Multipart arquivos repetido (PDF, até 25 MB cada); opcionalmente recebe servidor_id, servidor_nome, competencia (AAAA-MM) e substituir=true | Executa OCR Tesseract, devolve `processamentoId` e documentos; grava PDFs somente após receber metadados confirmados |
+| POST /folhas | Multipart `arquivos` repetido (PDF, até 25 MB e 50 páginas cada); para confirmar, `servidor_id`, `servidor_nome`, `competencia` (AAAA-MM), opcional `pagina` (1-based) e `substituir` | Separa e processa cada página independentemente; devolve `processamentoId` e um documento por página. Para salvar um PDF multipágina, recebe `pagina` e grava apenas essa página após metadados confirmados |
+| `PUT /folhas/{documento_id}/editar` | Multipart; matrícula ou nome completo. Outros metadados podem ser omitidos se disponíveis no OCR/registro; para OCR não salvo, PDF original e página | Resolve identidade no cadastro, salva correções e organiza o PDF. Retorna erro explicativo se não houver competência ou identidade suficientes |
 | `GET /processamentos/{id}` | ID do lote | Resultado persistido do OCR ou 404 |
 | `GET /notas?inicio=&fim=` | datas ISO opcionais | Notas persistidas que cruzam o período |
 | `POST /notas` | título, início, fim, contexto | Nota criada com ID |
@@ -351,7 +387,7 @@ Ao substituir um PDF existente com `substituir=true`, o anterior permanece na me
 
 Backend/requirements.txt registra pytesseract, PyMuPDF e Pillow. O executável Tesseract OCR e o modelo de idioma por.traineddata são pré-requisitos externos ao pip. Se tesseract.exe não estiver no PATH do processo da API, configure TESSERACT_CMD; o idioma pode ser trocado por TESSERACT_LANG.
 
-Backend/services/TesseractOCR.py converte cada página do PDF em imagem e extrai texto/confiança. Backend/services/ProcessadorFolhas.py reconhece rótulos de servidor, matrícula, e-mail e competência. POST /folhas persiste cada lote para consulta em GET /processamentos/{id}; o processamento OCR é síncrono.
+Backend/services/PreprocessadorPDF.py divide cada arquivo em documentos PDF de uma página em memória. A rota passa cada documento ao Backend/services/TesseractOCR.py, que renderiza a página e extrai texto/confiança; Backend/services/ProcessadorFolhas.py reconhece rótulos de servidor, matrícula, e-mail e competência. POST /folhas persiste os resultados do lote para consulta em GET /processamentos/{id}; o processamento OCR é síncrono.
 - **Datas**: enviar em ISO 8601 (`2026-10-19`, `2026-10-19T14:32:00`). O front converte para o formato brasileiro na exibição.
 - **Status**: usar exatamente os valores dos enums acima (minúsculos, sem acento).
 - **Erros**: responder com status HTTP correto e corpo `{ "detail": "mensagem" }`, para o front exibir a mensagem.
