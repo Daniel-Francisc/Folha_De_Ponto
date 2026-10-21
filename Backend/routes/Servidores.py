@@ -1,21 +1,21 @@
 """Leitura de servidores a partir das planilhas `.xlsx` importadas.
 
-O armazenamento atual é apenas uma pasta temporária e serve como etapa local
-provisória. Os arquivos importados como cadastro têm prefixo `servidores-`.
-Quando o projeto definir persistência definitiva, mantenha o contrato público
-`[{id, matricula, nome, email}]` para não obrigar a busca do front a mudar.
+Os arquivos de cadastro ficam em `Excel/Lista_de_Servidores`, gerenciados por
+`ArmazenamentoArquivos`. O contrato público é `[{id, matricula, nome, email}]`;
+mantenha esses campos estáveis para não quebrar a busca do front-end.
 """
 
 from pathlib import Path
 import re
-from tempfile import gettempdir
 from xml.etree import ElementTree
 from zipfile import BadZipFile, ZipFile
 
 from fastapi import APIRouter
 
+from Backend.services.ArmazenamentoArquivos import ArmazenamentoArquivos
+
 router = APIRouter(prefix="/servidores", tags=["Servidores"])
-STORAGE = Path(gettempdir()) / "folha_de_ponto" / "referencias"
+STORAGE = ArmazenamentoArquivos().pasta_excel / "Lista_de_Servidores"
 NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 
 
@@ -96,7 +96,9 @@ def listar_servidores():
     if not STORAGE.is_dir():
         return []
     servidores = {}
-    for caminho in STORAGE.glob("servidores-*.xlsx"):
+    for caminho in STORAGE.glob("*.xlsx"):
         for servidor in _servidores_da_planilha(caminho):
             servidores[servidor["id"]] = servidor
     return list(servidores.values())
+
+

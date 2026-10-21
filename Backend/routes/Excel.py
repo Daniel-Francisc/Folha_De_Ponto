@@ -1,128 +1,189 @@
-"""Importação de referências Excel e extração simples de eventos `.xlsx`.
+"""Importação das planilhas de referência recebidas pelo sistema.
 
-O leitor abaixo usa somente bibliotecas da linguagem padrão, por isso entende o
-formato XML compactado `.xlsx`, mas não o formato binário antigo `.xls`. A planilha
-é guardada em uma pasta temporária local (não no repositório). O contrato atual
-interpreta a primeira aba e uma linha de cabeçalho; veja `_planilha_xlsx` antes
-de adaptar para o layout institucional completo.
+A planilha é gravada pela classe `ArmazenamentoArquivos` em uma das pastas:
+`Excel/Calendario_Academico` ou `Excel/Lista_de_Servidores`. O leitor de eventos
+usa apenas bibliotecas padrão e entende `.xlsx`; o formato binário `.xls` ainda
+é recusado com uma mensagem clara.
 """
-
+from datetime import date, datetime, timedelta
 from io import BytesIO
-from pathlib import Path
-from tempfile import gettempdir
-from uuid import uuid4
 import re
 from xml.etree import ElementTree
 from zipfile import BadZipFile, ZipFile
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-router = APIRouter(prefix="/calendario", tags=["Calendário"])
-# `tempfile.gettempdir()` mantém os arquivos fora da pasta sincronizada do Git.
-STORAGE = Path(gettempdir()) / "folha_de_ponto" / "referencias"
+from Backend.services.ArmazenamentoArquivos import ArmazenamentoArquivos
+
+router = APIRouter(prefix="/calendario", tags=["Calendário e planilhas"])
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
-# Namespaces XML definidos pelo padrão Office Open XML.
-NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main", "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships"}
+NAMESPACES = {
+    "m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+}
+armazenamento = ArmazenamentoArquivos()
 
 
-def _planilha_xlsx(conteudo: bytes):
-    """Transforma a primeira aba de um `.xlsx` em linhas e eventos.
+def _ler_eventos_xlsx(conteudo: bytes) -> list[dict[str, str]]:
+    """Lê eventos da primeira aba de uma planilha `.xlsx` de calendário.
 
-    Um `.xlsx` é um ZIP que contém XMLs. `sharedStrings.xml` armazena textos
-    compartilhados e cada célula indica em qual coluna está (por exemplo, C4).
-    Esta função restaura as posições das colunas para que células vazias não
-    desloquem os dados. Cabeçalhos aceitos: Data; opcionalmente Título/Evento/
-    Descrição/Feriado e Tipo/Categoria. Retorna `[]` sem cabeçalho de calendário.
+    O XLSX é um ZIP de documentos XML. Texto em muitas células fica em
+    `sharedStrings.xml`; a referência da célula (como C4) informa sua coluna.
+    Aqui reconstruímos as colunas para células vazias não deslocarem valores.
 
-    TODO para próximas etapas: reconhecer o leiaute oficial do calendário,
-    validar datas sem deixar exceções técnicas escaparem e suportar abas múltiplas.
+    Cabeçalhos aceitos: Data/Dia/Date (obrigatório); Título/Evento/Descrição/
+    Feriado (opcional); Tipo/Categoria (opcional). Retorna ISO date (`YYYY-MM-DD`).
+    Para lista de servidores, o chamador não usa esta função.
     """
-    with ZipFile(BytesIO(conteudo)) as arquivo:
-        workbook = ElementTree.fromstring(arquivo.read("xl/workbook.xml"))
-        rels = ElementTree.fromstring(arquivo.read("xl/_rels/workbook.xml.rels"))
-        rel_map = {item.attrib["Id"]: item.attrib["Target"] for item in rels}
-        primeira = workbook.find("m:sheets/m:sheet", NS)
-        if primeira is None:
+    with ZipFile(BytesIO(conteudo)) as planilha:
+        workbook = ElementTree.fromstring(planilha.read("xl/workbook.xml"))
+        relationships = ElementTree.fromstring(
+            planilha.read("xl/_rels/workbook.xml.rels")
+        )
+        targets = {item.attrib["Id"]: item.attrib["Target"] for item in relationships}
+        primeira_aba = workbook.find("m:sheets/m:sheet", NAMESPACES)
+        if primeira_aba is None:
             return []
-        target = rel_map[primeira.attrib[f"{{{NS['r']}}}id"]].lstrip("/")
-        sheet_path = target if target.startswith("xl/") else f"xl/{target}"
-        sheet = ElementTree.fromstring(arquivo.read(sheet_path))
-        shared = []
-        if "xl/sharedStrings.xml" in arquivo.namelist():
-            root = ElementTree.fromstring(arquivo.read("xl/sharedStrings.xml"))
-            shared = ["".join(t.text or "" for t in si.findall(".//m:t", NS)) for si in root.findall("m:si", NS)]
-        rows = []
-        for row in sheet.findall(".//m:sheetData/m:row", NS):
-            values = []
-            for cell in row.findall("m:c", NS):
-                # Converte letras de coluna em índice 1-based: A=1, Z=26, AA=27.
-                col_ref = re.match(r"[A-Z]+", cell.attrib.get("r", "A"))
-                col_index = 0
-                for char in col_ref.group(0) if col_ref else "A":
-                    col_index = col_index * 26 + ord(char) - ord("A") + 1
-                while len(values) < col_index:
-                    values.append("")
-                # Tipo `s` referencia uma string compartilhada; `inlineStr` guarda
-                # o texto dentro da própria célula; os demais usam o valor XML.
-                value = cell.findtext("m:v", default="", namespaces=NS)
-                if cell.attrib.get("t") == "s" and value:
-                    value = shared[int(value)]
-                elif cell.attrib.get("t") == "inlineStr":
-                    value = "".join(t.text or "" for t in cell.findall(".//m:t", NS))
-                values[col_index - 1] = value.strip()
-            rows.append(values)
-    if not rows:
+
+        relationship_id = primeira_aba.attrib[f"{{{NAMESPACES['r']}}}id"]
+        caminho_aba = targets[relationship_id].lstrip("/")
+        if not caminho_aba.startswith("xl/"):
+            caminho_aba = f"xl/{caminho_aba}"
+        aba = ElementTree.fromstring(planilha.read(caminho_aba))
+
+        strings_compartilhadas: list[str] = []
+        if "xl/sharedStrings.xml" in planilha.namelist():
+            xml_strings = ElementTree.fromstring(planilha.read("xl/sharedStrings.xml"))
+            strings_compartilhadas = [
+                "".join(texto.text or "" for texto in item.findall(".//m:t", NAMESPACES))
+                for item in xml_strings.findall("m:si", NAMESPACES)
+            ]
+
+        linhas: list[list[str]] = []
+        for linha_xml in aba.findall(".//m:sheetData/m:row", NAMESPACES):
+            valores: list[str] = []
+            for celula in linha_xml.findall("m:c", NAMESPACES):
+                referencia = re.match(r"[A-Z]+", celula.attrib.get("r", "A"))
+                indice_coluna = 0
+                for letra in referencia.group(0) if referencia else "A":
+                    indice_coluna = indice_coluna * 26 + ord(letra) - ord("A") + 1
+                while len(valores) < indice_coluna:
+                    valores.append("")
+
+                valor = celula.findtext("m:v", default="", namespaces=NAMESPACES)
+                if celula.attrib.get("t") == "s" and valor:
+                    valor = strings_compartilhadas[int(valor)]
+                elif celula.attrib.get("t") == "inlineStr":
+                    valor = "".join(
+                        texto.text or ""
+                        for texto in celula.findall(".//m:t", NAMESPACES)
+                    )
+                valores[indice_coluna - 1] = valor.strip()
+            linhas.append(valores)
+
+    if not linhas:
         return []
-    headers = [value.casefold() for value in rows[0]]
-    data_i = next((i for i, value in enumerate(headers) if value in {"data", "dia", "date"}), None)
-    title_i = next((i for i, value in enumerate(headers) if value in {"titulo", "evento", "descrição", "descricao", "feriado"}), None)
-    type_i = next((i for i, value in enumerate(headers) if value in {"tipo", "categoria"}), None)
-    if data_i is None:
-        return []
+    cabecalhos = [valor.strip().casefold() for valor in linhas[0]]
+    indice_data = next(
+        (i for i, nome in enumerate(cabecalhos) if nome in {"data", "dia", "date"}),
+        None,
+    )
+    indice_titulo = next(
+        (
+            i for i, nome in enumerate(cabecalhos)
+            if nome in {"titulo", "título", "evento", "descrição", "descricao", "feriado"}
+        ),
+        None,
+    )
+    indice_tipo = next(
+        (i for i, nome in enumerate(cabecalhos) if nome in {"tipo", "categoria"}),
+        None,
+    )
+    if indice_data is None:
+        raise ValueError("A planilha de calendário precisa ter uma coluna Data.")
+
     eventos = []
-    for row in rows[1:]:
-        if data_i >= len(row) or not row[data_i]:
+    for linha in linhas[1:]:
+        if indice_data >= len(linha) or not linha[indice_data]:
             continue
-        data = row[data_i]
-        if data.isdigit():
-            from datetime import date, timedelta
-            data = (date(1899, 12, 30) + timedelta(days=int(data))).isoformat()
-        elif "/" in data:
-            from datetime import datetime
-            data = datetime.strptime(data, "%d/%m/%Y").date().isoformat()
-        eventos.append({"data": data, "titulo": row[title_i] if title_i is not None and title_i < len(row) and row[title_i] else "Evento acadêmico", "tipo": row[type_i].casefold() if type_i is not None and type_i < len(row) and row[type_i] else "evento"})
+        valor_data = linha[indice_data]
+        if valor_data.isdigit():
+            valor_data = (date(1899, 12, 30) + timedelta(days=int(valor_data))).isoformat()
+        elif "/" in valor_data:
+            valor_data = datetime.strptime(valor_data, "%d/%m/%Y").date().isoformat()
+        else:
+            # Já pode estar em ISO; valida para não devolver datas impossíveis.
+            valor_data = date.fromisoformat(valor_data).isoformat()
+
+        titulo = (
+            linha[indice_titulo]
+            if indice_titulo is not None and indice_titulo < len(linha)
+            else ""
+        )
+        tipo = (
+            linha[indice_tipo].casefold()
+            if indice_tipo is not None and indice_tipo < len(linha)
+            else ""
+        )
+        eventos.append(
+            {
+                "data": valor_data,
+                "titulo": titulo or "Evento acadêmico",
+                "tipo": tipo or "evento",
+            }
+        )
     return eventos
 
 
-@router.post("")
-async def importar_calendario(arquivo: UploadFile = File(...)):
-    """Recebe planilha de calendário ou cadastro em multipart.
+@router.post("", summary="Importar uma planilha de referência")
+async def importar_planilha(
+    arquivo: UploadFile = File(..., description="Arquivo .xlsx de calendário ou servidores."),
+    categoria: str = Form(
+        default="calendario",
+        description="Use 'calendario' ou 'servidores' para definir a pasta de destino.",
+    ),
+):
+    """Valida, processa e armazena uma planilha Excel localmente.
 
-    Entrada: campo `arquivo`. Saída: `{eventos: [...]}`. `.xlsx` é processado;
-    `.xls` é reconhecido pela extensão, mas rejeitado com HTTP 415. Um arquivo
-    sem eventos é classificado como planilha de servidores nesta versão. Esse
-    critério provisório deverá ser substituído por campo explícito `tipo` ou
-    validação dos cabeçalhos antes de ampliar o uso institucional.
+    Multipart: `arquivo` e `categoria`. A categoria é explícita para não
+    classificar planilhas vazias ou layouts diferentes por suposição. O retorno
+    inclui a categoria e o nome salvo. Para `.xls`, primeiro salve como `.xlsx`.
     """
-    nome = (arquivo.filename or "").lower()
-    if not nome.endswith((".xls", ".xlsx")):
-        raise HTTPException(status_code=400, detail="Envie um arquivo XLS ou XLSX.")
+    nome_original = arquivo.filename or ""
+    nome_minusculo = nome_original.lower()
+    if not nome_minusculo.endswith((".xls", ".xlsx")):
+        raise HTTPException(status_code=400, detail="Envie um arquivo .xls ou .xlsx.")
+    if categoria not in ArmazenamentoArquivos.PASTAS_EXCEL:
+        raise HTTPException(
+            status_code=400,
+            detail="Categoria inválida. Use 'calendario' ou 'servidores'.",
+        )
+
     conteudo = await arquivo.read(MAX_UPLOAD_BYTES + 1)
     await arquivo.close()
     if not conteudo:
         raise HTTPException(status_code=400, detail="O arquivo está vazio.")
     if len(conteudo) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="A planilha excede o limite de 10 MB.")
-    if nome.endswith(".xls"):
-        raise HTTPException(status_code=415, detail="Planilhas XLS binárias ainda não são suportadas. Salve como XLSX e tente novamente.")
+    if nome_minusculo.endswith(".xls"):
+        raise HTTPException(
+            status_code=415,
+            detail="Planilhas XLS binárias ainda não são suportadas. Salve o arquivo como XLSX.",
+        )
+
+    eventos: list[dict[str, str]] = []
+    if categoria == "calendario":
+        try:
+            eventos = _ler_eventos_xlsx(conteudo)
+        except (BadZipFile, KeyError, ElementTree.ParseError, ValueError, IndexError) as erro:
+            raise HTTPException(
+                status_code=422,
+                detail="Não foi possível ler a planilha de calendário. Confira o arquivo e a coluna Data.",
+            ) from erro
+
     try:
-        eventos = _planilha_xlsx(conteudo)
-    except (BadZipFile, KeyError, ElementTree.ParseError, ValueError, IndexError) as erro:
-        raise HTTPException(status_code=422, detail="Planilha XLSX inválida ou sem colunas de calendário reconhecíveis.") from erro
-    STORAGE.mkdir(parents=True, exist_ok=True)
-    is_calendar = bool(eventos)
-    if is_calendar:
-        (STORAGE / f"calendario-{uuid4().hex}.xlsx").write_bytes(conteudo)
-    else:
-        (STORAGE / f"servidores-{uuid4().hex}.xlsx").write_bytes(conteudo)
-    return {"eventos": eventos}
+        caminho = armazenamento.salvar_excel(conteudo, nome_original, categoria)
+    except ValueError as erro:
+        raise HTTPException(status_code=400, detail=str(erro)) from erro
+
+    return {"eventos": eventos, "categoria": categoria, "arquivo": caminho.name}

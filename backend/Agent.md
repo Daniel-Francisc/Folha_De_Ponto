@@ -40,13 +40,33 @@ As rotas são a camada HTTP de entrada: devem receber os dados, validar o format
 ## Mapa real de rotas (20/10/2026)
 
 - `GET /health` — verificação simples de disponibilidade.
-- `GET /servidores` — lista `[{id, matricula, nome, email}]` lida de `.xlsx` em armazenamento temporário.
-- `POST /calendario` — multipart `arquivo`; `.xlsx` até 10 MB; retorna `{eventos: [...]}` e guarda a planilha local. `.xls` binário ainda não é suportado.
-- `POST /folhas` — multipart repetido `arquivos`; PDF até 25 MB; valida assinatura e extensão, retorna `{documentos: [...]}` com campos vazios, `nao_escaneado` e mensagem de OCR pendente.
+- `GET /servidores` — lista `[{id, matricula, nome, email}]` lida de planilhas em `Excel/Lista_de_Servidores`.
+- `POST /calendario` — multipart `arquivo` e `categoria` (`calendario` ou `servidores`); `.xlsx` até 10 MB; retorna `{eventos, categoria, arquivo}` e grava via `ArmazenamentoArquivos`. `.xls` binário ainda não é processado.
+- `POST /folhas` — multipart repetido `arquivos`; PDF até 25 MB. Para salvar em pasta final, também exige `servidor_id`, `servidor_nome`, `competencia` (`AAAA-MM`) e, opcionalmente, `substituir=true`. Sem metadados confirmados, valida mas não salva, pois OCR ainda não está ligado.
 
-### Rotas scaffold em `routes/Integracao.py`
+### Armazenamento de arquivos
 
-Essas rotas já existem no OpenAPI e têm modelos de entrada para orientar o front. Elas não persistem nem enviam dados: GET de coleção retorna `[]`, GET de objeto/operações de gravação retornam `{}`. Leia a docstring da função antes de implementar. Não trate retorno vazio como sucesso persistido.
+- Serviço: `Backend/services/ArmazenamentoArquivos.py`.
+- Raiz padrão: `Backend/arquivos/recebidos`; substituir com `FOLHA_STORAGE_DIR`.
+- Excel: `Excel/Calendario_Academico/` e `Excel/Lista_de_Servidores/`.
+- PDF: `PDFs/{id}_{nome}/{AAAA-MM}/{nome}-{AAAA-MM}.pdf`.
+- Duplicata PDF não sobrescreve por padrão. Com autorização explícita, versão antiga vira `{nome}-{AAAA-MM}_OLD_[AAAAMMDD-HHMMSS].pdf`.
+- A classe não identifica servidor/competência por OCR; quem a chamar deve fornecer metadados confirmados.
+
+### Instalação opcional de OCR
+
+O `requirements.txt` inclui `paddlepaddle==3.3.1` e `PaddleOCR==3.7.0`. No PowerShell, entre em `Backend` e rode estes comandos usando o ambiente Python já configurado:
+
+```powershell
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Se o ambiente já estiver ativado, use `python -m pip install -r requirements.txt`. Instalar os pacotes não conecta OCR sozinho: a classe/serviço de OCR ainda precisa ser implementada e chamada pela rota.
+
+### Rotas scaffold, um arquivo por área em `routes/`
+
+Essas rotas já existem no OpenAPI e têm modelos de entrada para orientar o front. Elas não persistem nem enviam dados: GET de coleção retorna `[]`, GET de objeto/operações de gravação retornam `{}`. Leia a docstring da função antes de implementar. Cada família de endpoints tem seu próprio módulo: `CalendarioNotas.py`, `Marcacoes.py`, `Emails.py`, `Rotinas.py`, `Recebidos.py`, `Historico.py`, `Inicio.py`, `Notificacoes.py` e `Processamentos.py`. Não trate retorno vazio como sucesso persistido.
 
 | Método e rota | Entrada esperada | Retorno scaffold | Próximo trabalho |
 |---|---|---|---|
@@ -94,4 +114,5 @@ CORS libera `http://localhost:5173` e `http://127.0.0.1:5173`. As rotas scaffold
 - Manter caminhos de saída e nomes de arquivo seguros, removendo caracteres inadequados dos nomes.
 - Não adicionar banco de dados, autenticação ou armazenamento em nuvem sem alinhar a decisão ao escopo do projeto.
 - Ao alterar uma rota, explicar a responsabilidade dela, os dados de entrada/saída e como testar.
+
 

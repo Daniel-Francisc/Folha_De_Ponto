@@ -268,3 +268,7 @@ desktop.ini
 # Utilitários locais
 # ==========================================================================
 *.tmp
+Backend/.env.example
+Backend/.env.example
+Backend/pip-metadata-1al49hfr/METADATA
+Backend/.env.example

@@ -1,26 +1,24 @@
 """Ponto de entrada da API FastAPI.
 
 Para iniciar localmente, na raiz do repositório execute `uvicorn Backend.Main:app
---reload`. Cada router agrupa endpoints por assunto; a divisão mantém este
-arquivo simples e deixa validações e regras de negócio perto de cada área.
+--reload`. Cada módulo de `routes/` cuida de uma área da API, mantendo o padrão
+existente de um arquivo por grupo de rotas.
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from Backend.routes.Arquivo import router as router_arquivo
+from Backend.routes.CalendarioNotas import router as router_notas
+from Backend.routes.Emails import router as router_emails
 from Backend.routes.Excel import router as router_excel
-from Backend.routes.Integracao import (
-    emails_router,
-    historico_router,
-    inicio_router,
-    marcas_router,
-    notas_router,
-    notificacoes_router,
-    processamentos_router,
-    recebidos_router,
-    rotinas_router,
-)
+from Backend.routes.Historico import router as router_historico
+from Backend.routes.Inicio import router as router_inicio
+from Backend.routes.Marcacoes import router as router_marcacoes
+from Backend.routes.Notificacoes import router as router_notificacoes
+from Backend.routes.Processamentos import router as router_processamentos
+from Backend.routes.Recebidos import router as router_recebidos
+from Backend.routes.Rotinas import router as router_rotinas
 from Backend.routes.Servidores import router as router_servidores
 
 app = FastAPI(
@@ -43,25 +41,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Rotas com implementação atual.
+# Rotas separadas por arquivo/área, seguindo o padrão existente em routes/.
 app.include_router(router_servidores)
 app.include_router(router_excel)
 app.include_router(router_arquivo)
-
-# Rotas scaffold: os handlers explicam o que falta e retornam vazio até que a
-# persistência/serviço correspondente seja implementado com segurança.
-for router in (
-    notas_router,
-    marcas_router,
-    emails_router,
-    rotinas_router,
-    recebidos_router,
-    historico_router,
-    inicio_router,
-    notificacoes_router,
-    processamentos_router,
-):
-    app.include_router(router)
+app.include_router(router_notas)
+app.include_router(router_marcacoes)
+app.include_router(router_emails)
+app.include_router(router_rotinas)
+app.include_router(router_recebidos)
+app.include_router(router_historico)
+app.include_router(router_inicio)
+app.include_router(router_notificacoes)
+app.include_router(router_processamentos)
 
 
 @app.get("/health", tags=["Sistema"], summary="Verificar disponibilidade da API")

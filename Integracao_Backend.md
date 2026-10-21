@@ -314,8 +314,8 @@ O backend aceita `.xlsx` de até 10 MB e a primeira aba com uma coluna chamada `
 |---|---|---|
 | `GET /health` | — | `{ "status": "ok" }` |
 | `GET /servidores` | — | Lista `[{id, matricula, nome, email}]` ou `[]` |
-| `POST /calendario` | Multipart `arquivo` (`.xlsx`, até 10 MB) | `{ "eventos": [...] }` |
-| `POST /folhas` | Multipart `arquivos` repetido (PDF, até 25 MB cada) | `{ "documentos": [...] }`, OCR pendente e campos vazios |
+| `POST /calendario` | Multipart `arquivo` (`.xlsx`, até 10 MB) e `categoria` (`calendario` ou `servidores`) | `{ "eventos": [...], "categoria": "...", "arquivo": "..." }`; grava em `Excel/Calendario_Academico` ou `Excel/Lista_de_Servidores` |
+| `POST /folhas` | Multipart `arquivos` repetido (PDF, até 25 MB cada); para armazenar, enviar `servidor_id`, `servidor_nome`, `competencia` (`AAAA-MM`) e opcionalmente `substituir=true` | `{ "documentos": [...] }`; sem metadados confirmados não salva, com metadados grava em `PDFs/{id}_{nome}/{AAAA-MM}/` |
 | `GET /processamentos/{id}` | ID do lote | `{}` scaffold; lote ainda não é persistido |
 | `GET /notas?inicio=&fim=` | datas ISO opcionais | `[]` scaffold |
 | `POST /notas` | título, início, fim, contexto | `{}` scaffold |
@@ -333,7 +333,27 @@ O backend aceita `.xlsx` de até 10 MB e a primeira aba com uma coluna chamada `
 | `GET /inicio` | — | `{}` scaffold |
 | `GET /notificacoes` | — | `[]` scaffold |
 
-O backend habilita CORS para `localhost:5173` e `127.0.0.1:5173`. Rotas scaffold constam no OpenAPI, mas não têm persistência nem efeito colateral e não devem ser interpretadas como sucesso. Upload e resultado de PDFs também não são persistidos; o endpoint só valida e responde com estado não escaneado. Consulte as docstrings em `Backend/routes/Integracao.py` para instruções de continuação por endpoint.
+O backend habilita CORS para `localhost:5173` e `127.0.0.1:5173`. A classe `Backend/services/ArmazenamentoArquivos.py` grava referências e PDFs em `Backend/arquivos/recebidos` (ou em `FOLHA_STORAGE_DIR`). Rotas scaffold constam no OpenAPI, mas não têm persistência nem efeito colateral e não devem ser interpretadas como sucesso. PDFs só são armazenados depois que servidor e competência forem informados; o OCR ainda não fornece esses metadados automaticamente. Cada área scaffold tem seu próprio arquivo em `Backend/routes/` — por exemplo, `Emails.py`, `Rotinas.py` e `CalendarioNotas.py`. Consulte a docstring da rota para instruções de continuação.
+
+Ao substituir um PDF existente com `substituir=true`, o anterior permanece na mesma pasta com nome `{nome}-{AAAA-MM}_OLD_[AAAAMMDD-HHMMSS].pdf`. Sem a flag, a API retorna conflito e mantém o original.
+
+## Instalação do PaddleOCR
+
+O ambiente Python local não foi alterado. As dependências `paddlepaddle==3.3.1` e `PaddleOCR==3.7.0` foram adicionadas a `Backend/requirements.txt`. No terminal, a partir da pasta `Backend`, execute:
+
+```powershell
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Se preferir chamar o Python do venv explicitamente no Windows:
+
+```powershell
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Depois da instalação, esses pacotes ainda precisam ser conectados a um serviço OCR; a rota de PDF não os invoca automaticamente.
 
 - **Datas**: enviar em ISO 8601 (`2026-10-19`, `2026-10-19T14:32:00`). O front converte para o formato brasileiro na exibição.
 - **Status**: usar exatamente os valores dos enums acima (minúsculos, sem acento).
@@ -356,3 +376,4 @@ O backend habilita CORS para `localhost:5173` e `127.0.0.1:5173`. Rotas scaffold
 | `emails.js` | Emails (pendentes, rotinas, recebidos, histórico) |
 
 Cada arquivo tem um `TODO(dados)` no topo indicando a substituição.
+
