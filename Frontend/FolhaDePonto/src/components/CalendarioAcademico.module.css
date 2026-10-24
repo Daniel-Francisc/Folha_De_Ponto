@@ -33,6 +33,29 @@
   gap: var(--space-2);
 }
 
+/* Botão « que volta ao mês atual (azul escuro). */
+.botaoHoje {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  padding: 0;
+  color: var(--color-text-inverse);
+  background-color: var(--color-blue-900);
+  border: 1px solid var(--color-blue-900);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.botaoHoje:hover {
+  background-color: var(--color-blue-700);
+  box-shadow: var(--shadow-control);
+}
+
 .botaoNavegacao {
   display: inline-flex;
   align-items: center;
@@ -86,6 +109,7 @@
 }
 
 .celula {
+  position: relative;
   height: 76px;
   padding: var(--space-1) var(--space-2);
   vertical-align: top;
@@ -133,11 +157,14 @@
   box-shadow: inset 0 0 0 2px var(--color-blue-600);
 }
 
-/* Botão que cobre a área do dia (clique acessível). */
+/* Botão que cobre a célula inteira: qualquer clique no dia seleciona. */
 .botaoDia {
-  display: block;
-  width: 100%;
-  padding: 0;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-1) 0 0;
   color: inherit;
   text-align: center;
   background: none;
@@ -174,10 +201,13 @@
 /* ---------- Marcações ---------- */
 
 .marcadores {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
   margin-top: 2px;
+  pointer-events: none;
 }
 
 .trilha {

@@ -54,6 +54,12 @@ export default function CalendarioAcademico({
     })
   }
 
+  /** Volta para o mês atual (botão «). */
+  function voltarParaHoje() {
+    const agora = new Date()
+    setReferencia({ ano: agora.getFullYear(), mes: agora.getMonth() })
+  }
+
   return (
     <section className={styles.calendario} aria-label="Calendário acadêmico">
       {/* ---------- Cabeçalho: título do mês + navegação ---------- */}
@@ -63,6 +69,16 @@ export default function CalendarioAcademico({
         </h2>
 
         <div className={styles.controles}>
+          <button
+            type="button"
+            className={styles.botaoHoje}
+            onClick={voltarParaHoje}
+            aria-label="Voltar para o mês atual"
+            title="Mês atual"
+          >
+            <i className="bi bi-chevron-double-left" aria-hidden="true" />
+          </button>
+
           <button
             type="button"
             className={styles.botaoNavegacao}

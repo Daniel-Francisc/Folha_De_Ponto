@@ -268,7 +268,7 @@ export default function Emails() {
       onDragLeave={aoSairDoArraste}
       onDrop={aoSoltar}
     >
-      <h1 id="titulo-emails">Emails</h1>
+      {/* <h1 id="titulo-emails">Emails</h1> */}
 
       {erro && (
         <p className={styles.erro} role="alert">

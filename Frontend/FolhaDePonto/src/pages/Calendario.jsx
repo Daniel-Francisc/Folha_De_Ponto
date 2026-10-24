@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import styles from './Calendario.module.css'
 import CalendarioAcademico from '../components/CalendarioAcademico.jsx'
 import PainelCalendario from '../components/PainelCalendario.jsx'
@@ -26,7 +27,11 @@ function mapaDeMarcas(lista) {
 }
 
 export default function Calendario() {
-  const [diaSelecionado, setDiaSelecionado] = useState(null)
+  const [searchParams] = useSearchParams()
+  const diaParam = searchParams.get('dia')
+
+  // Abre já no dia vindo do Início (?dia=AAAA-MM-DD).
+  const [diaSelecionado, setDiaSelecionado] = useState(() => diaParam)
   const [notas, setNotas] = useState([])
   const [marcas, setMarcas] = useState({})
   const [modo, setModo] = useState('nota')
@@ -221,7 +226,7 @@ export default function Calendario() {
       onDrop={aoSoltar}
       data-arrastando={arrastando ? 'true' : undefined}
     >
-      <h1 id="titulo-calendario">Calendário</h1>
+      {/*<h1 id="titulo-calendario">Calendário</h1>*/}
 
       {erro && (
         <p className={styles.erro} role="alert">

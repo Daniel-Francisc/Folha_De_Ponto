@@ -17,9 +17,12 @@ def resumo_inicio():
         key=lambda item: item.get("data", ""), reverse=True,
     )
     hoje = date.today()
+    # "Folhas lidas este mês" = recebidas no mês corrente, independente da
+    # competência da folha (que pode ser de um mês anterior).
+    prefixo_mes = hoje.strftime("%Y-%m")
     folhas_mes = [
         item for item in documentos
-        if item.get("competencia") == hoje.strftime("%m/%Y")
+        if str(item.get("recebidoEm", "")).startswith(prefixo_mes)
     ]
     ultima_folha = max(
         documentos, key=lambda item: item.get("recebidoEm", ""), default=None

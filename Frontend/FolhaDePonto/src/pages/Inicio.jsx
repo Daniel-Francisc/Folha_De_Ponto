@@ -1,39 +1,62 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import styles from './Inicio.module.css'
 import CalendarioAcademico from '../components/CalendarioAcademico.jsx'
 import CardFuncionarios from '../components/CardFuncionarios.jsx'
 import CardEmails from '../components/CardEmails.jsx'
 import ResumoRapido from '../components/ResumoRapido.jsx'
-import { mensagemDeErro, painel } from '../services/api.js'
+import {
+  marcacoes as apiMarcacoes,
+  mensagemDeErro,
+  notas as apiNotas,
+  painel,
+} from '../services/api.js'
+import { diasDoIntervalo } from '../utils/marcas.js'
 
 /**
  * Tela principal (Frontend/Agent.md, seção 5.1).
  *
- * Dados reais: GET /inicio
- * { totalFolhasMes, ultimaFolha, solicitacoesPendentes, ultimosEnvios }
+ * - GET /inicio, /notas e /marcacoes alimentam cards e calendário.
+ * - Clicar em um dia NÃO abre a nota aqui: navega para /calendario?dia=…
  */
+function mapaDeMarcas(lista) {
+  return Object.fromEntries(lista.map((item) => [item.dia, item.tipos]))
+}
+
 export default function Inicio() {
+  const navegar = useNavigate()
+
   const [dados, setDados] = useState(null)
+  const [notas, setNotas] = useState([])
+  const [marcas, setMarcas] = useState({})
   const [erro, setErro] = useState('')
 
+  const diasComNota = useMemo(
+    () => new Set(notas.flatMap((item) => diasDoIntervalo(item.inicio, item.fim))),
+    [notas],
+  )
+
+  function carregar() {
+    Promise.all([painel.inicio(), apiNotas.listar(), apiMarcacoes.listar()])
+      .then(([resumo, listaNotas, listaMarcas]) => {
+        setDados(resumo)
+        setNotas(listaNotas)
+        setMarcas(mapaDeMarcas(listaMarcas))
+        setErro('')
+      })
+      .catch((falha) => setErro(mensagemDeErro(falha)))
+  }
+
   useEffect(() => {
-    let ativo = true
+    carregar()
 
-    painel
-      .inicio()
-      .then((resposta) => {
-        if (ativo) {
-          setDados(resposta)
-          setErro('')
-        }
-      })
-      .catch((falha) => {
-        if (ativo) setErro(mensagemDeErro(falha))
-      })
-
-    return () => {
-      ativo = false
+    // Recalcula os cards ao voltar para a aba.
+    function aoFocar() {
+      carregar()
     }
+
+    window.addEventListener('focus', aoFocar)
+    return () => window.removeEventListener('focus', aoFocar)
   }, [])
 
   return (
@@ -48,7 +71,11 @@ export default function Inicio() {
 
       <div className={styles.grade}>
         <div className={styles.calendario}>
-          <CalendarioAcademico />
+          <CalendarioAcademico
+            marcas={marcas}
+            diasComNota={diasComNota}
+            onDiaClique={(dia) => navegar(`/calendario?dia=${dia}`)}
+          />
         </div>
 
         <div className={styles.funcionarios}>

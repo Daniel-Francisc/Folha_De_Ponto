@@ -1,9 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import styles from './Servidor.module.css'
 import BuscaServidor from '../components/BuscaServidor.jsx'
 import AreaFolhaDePonto from '../components/AreaFolhaDePonto.jsx'
 import PainelDocumentos from '../components/PainelDocumentos.jsx'
 import { emails, folhas, mensagemDeErro, servidores as apiServidores } from '../services/api.js'
+import {
+  adicionarDocumentoSessao,
+  atualizarDocumentoSessao,
+  listarDocumentosSessao,
+} from '../services/sessao.js'
+
+/** Cache local dos servidores (sobrevive a recarregamentos). */
+const CHAVE_CACHE_SERVIDORES = 'undf:servidores:v1'
+const VALIDADE_CACHE_MS = 24 * 60 * 60 * 1000
+
+function lerCacheServidores() {
+  try {
+    const bruto = localStorage.getItem(CHAVE_CACHE_SERVIDORES)
+    if (!bruto) return []
+    const { lista, quando } = JSON.parse(bruto)
+    if (!Array.isArray(lista) || Date.now() - quando > VALIDADE_CACHE_MS) return []
+    return lista
+  } catch {
+    return []
+  }
+}
+
+function salvarCacheServidores(lista) {
+  try {
+    localStorage.setItem(
+      CHAVE_CACHE_SERVIDORES,
+      JSON.stringify({ lista, quando: Date.now() }),
+    )
+  } catch {
+    // Storage cheio ou indisponível: seguir sem cache.
+  }
+}
 
 /**
  * Tela de Servidor (Frontend/Agent.md, seção 5.2).
@@ -80,10 +112,10 @@ function camposIniciais(documento, servidor) {
 
 export default function Servidor() {
   const [busca, setBusca] = useState('')
-  const [listaServidores, setListaServidores] = useState([])
+  const [listaServidores, setListaServidores] = useState(() => lerCacheServidores())
   const [servidorSelecionado, setServidorSelecionado] = useState(null)
 
-  const [documentos, setDocumentos] = useState([])
+  const [documentos, setDocumentos] = useState(() => [...listarDocumentosSessao()])
   const [documentoAtivoId, setDocumentoAtivoId] = useState(null)
 
   const [lado, setLado] = useState('direita')
@@ -96,19 +128,9 @@ export default function Servidor() {
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
 
-  // URLs de blob dos PDFs enviados nesta sessão (liberadas ao sair da tela).
-  const urlsPdf = useRef([])
-
-  useEffect(
-    () => () => {
-      urlsPdf.current.forEach((url) => URL.revokeObjectURL(url))
-    },
-    [],
-  )
-
   const documentoAtivo = documentos.find((doc) => doc.id === documentoAtivoId) ?? null
 
-  // Busca servidores e folhas pendentes ao abrir a tela.
+  // Busca servidores (com cache local) e folhas pendentes ao abrir a tela.
   useEffect(() => {
     let ativo = true
 
@@ -116,7 +138,32 @@ export default function Servidor() {
       .then(([lista, pendentes]) => {
         if (!ativo) return
         setListaServidores(lista)
-        setDocumentos(pendentes.map(documentoPendente))
+        salvarCacheServidores(lista)
+
+        // Mantém os OCRs desta sessão (com preview) e acrescenta os pendentes.
+        const daSessao = listarDocumentosSessao()
+        const idsSessao = new Set(daSessao.map((doc) => doc.id))
+        setDocumentos([
+          ...daSessao,
+          ...pendentes
+            .filter((item) => !idsSessao.has(item.id))
+            .map(documentoPendente),
+        ])
+
+        // Reabre o último OCR da sessão para manter a visualização disponível.
+        if (daSessao.length > 0) {
+          const primeiro = daSessao[0]
+          const servidor =
+            lista.find((item) => item.id === primeiro.servidorId) ??
+            lista.find((item) => item.matricula === primeiro.servidorId) ??
+            null
+
+          setDocumentoAtivoId(primeiro.id)
+          setServidorSelecionado(servidor)
+          setCampos(camposIniciais(primeiro, servidor))
+          setAba('dados')
+        }
+
         setErro('')
       })
       .catch((falha) => {
@@ -157,9 +204,10 @@ export default function Servidor() {
     try {
       const resposta = await folhas.processar([arquivo])
       const urlPdf = URL.createObjectURL(arquivo)
-      urlsPdf.current.push(urlPdf)
-
       const novos = resposta.documentos.map((doc) => documentoProcessado(doc, urlPdf, arquivo))
+
+      // Guarda na memória de sessão: sobrevive à navegação entre telas.
+      novos.forEach(adicionarDocumentoSessao)
 
       setDocumentos((atuais) => [...novos, ...atuais])
       if (novos[0]) abrirDocumento(novos[0])
@@ -197,26 +245,27 @@ export default function Servidor() {
         competencia: competenciaApi,
         horarios: valor('horarios'),
       })
-      setDocumentos((atuais) => atuais.map((doc) => (
-        doc.id === documentoAtivo.id
-          ? {
-              ...doc,
-              ...salvo,
-              status: 'corrigido',
-              competencia: salvo.competencia,
-              servidorId: salvo.servidorId,
-              armazenado: true,
-              campos: {
-                ...doc.campos,
-                servidor: salvo.servidor,
-                matricula: salvo.servidorId,
-                email: salvo.email ?? doc.campos.email ?? '',
-                competencia: salvo.competencia,
-                horarios: salvo.horarios ?? [],
-              },
-            }
-          : doc
-      )))
+      const atualizado = {
+        ...documentoAtivo,
+        ...salvo,
+        status: 'corrigido',
+        competencia: salvo.competencia,
+        servidorId: salvo.servidorId,
+        armazenado: true,
+        campos: {
+          ...documentoAtivo.campos,
+          servidor: salvo.servidor,
+          matricula: salvo.servidorId,
+          email: salvo.email ?? documentoAtivo.campos.email ?? '',
+          competencia: salvo.competencia,
+          horarios: salvo.horarios ?? [],
+        },
+      }
+
+      setDocumentos((atuais) =>
+        atuais.map((doc) => (doc.id === documentoAtivo.id ? atualizado : doc)),
+      )
+      atualizarDocumentoSessao(documentoAtivo.id, atualizado)
       setErro('')
     } catch (falha) {
       setErro(mensagemDeErro(falha))
@@ -227,7 +276,7 @@ export default function Servidor() {
 
   return (
     <section className={styles.pagina} aria-labelledby="titulo-servidor">
-      <h1 id="titulo-servidor">Servidor</h1>
+      {/* <h1 id="titulo-servidor">Servidor</h1> */}
 
       {erro && (
         <p className={styles.erro} role="alert">
